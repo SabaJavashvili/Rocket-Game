@@ -708,46 +708,54 @@
   }
 
   /* ----------------------------------------------------------------
-     Power-ups (shield, double-shot)
+     Power-ups — shared bob + blinking halo, per-kind glow color
   -----------------------------------------------------------------*/
   .powerup {
     position: absolute;
-    width: 42px; height: 42px;
+    width: 46px; height: 46px;
     transform: translate(-50%, -50%);
     pointer-events: none;
-    filter: drop-shadow(0 0 10px rgba(120,200,255,0.8));
-    animation: pu-bob 1.4s ease-in-out infinite alternate;
+    --pu-glow: 120, 200, 255;
+    filter:
+      drop-shadow(0 0 10px rgba(var(--pu-glow), 1))
+      drop-shadow(0 0 24px rgba(var(--pu-glow), 0.75))
+      drop-shadow(0 0 42px rgba(var(--pu-glow), 0.45));
+    animation:
+      pu-bob 1.4s ease-in-out infinite alternate,
+      pu-blink 0.7s ease-in-out infinite alternate;
   }
-  .powerup.shield {
-    filter: drop-shadow(0 0 12px rgba(120,200,255,0.95))
-            drop-shadow(0 0 24px rgba(80,160,255,0.7));
-    animation: pu-bob 1.4s ease-in-out infinite alternate, pu-spin 3.2s linear infinite;
-  }
-  .powerup.shield::before {
+  .powerup::before {
     content: "";
     position: absolute;
-    inset: -14px;
+    inset: -18px;
     border-radius: 50%;
     background: radial-gradient(circle,
-      rgba(120,200,255,0.55) 0%,
-      rgba(80,160,255,0.30) 40%,
-      rgba(40,100,200,0.0) 70%);
+      rgba(var(--pu-glow), 0.65) 0%,
+      rgba(var(--pu-glow), 0.30) 40%,
+      rgba(var(--pu-glow), 0.0)  72%);
     z-index: -1;
-    animation: shield-aura 2s ease-in-out infinite;
+    animation: pu-halo 0.8s ease-in-out infinite alternate;
+    pointer-events: none;
   }
-  @keyframes pu-spin {
-    from { transform: translate(-50%, -50%) rotate(0deg); }
-    to   { transform: translate(-50%, -50%) rotate(360deg); }
-  }
-  @keyframes shield-aura {
-    0%,100% { opacity: 0.7; transform: scale(1.0); }
-    50%     { opacity: 1.0; transform: scale(1.18); }
-  }
-  .powerup.double  { filter: drop-shadow(0 0 12px rgba(255,180,90,0.9)); }
+  .powerup.shield { --pu-glow: 120, 200, 255; }
+  .powerup.double { --pu-glow: 255, 170,  90; }
+  .powerup.bomb   { --pu-glow: 255, 110, 110; }
+  .powerup.magnet { --pu-glow: 255,  90, 170; }
+  .powerup.heal   { --pu-glow: 130, 240, 150; }
+  .powerup.slow   { --pu-glow: 170, 220, 255; }
+
   .powerup svg { width: 100%; height: 100%; display: block; }
   @keyframes pu-bob {
     from { transform: translate(-50%, -50%) rotate(-4deg); }
     to   { transform: translate(-50%, -40%) rotate(4deg); }
+  }
+  @keyframes pu-blink {
+    0%,100% { opacity: 0.75; }
+    50%     { opacity: 1.0; }
+  }
+  @keyframes pu-halo {
+    0%,100% { opacity: 0.45; transform: scale(0.82); }
+    50%     { opacity: 1.0;  transform: scale(1.25); }
   }
   .powerups { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 
@@ -815,6 +823,112 @@
     -webkit-backdrop-filter: blur(6px);
   }
   .ds-badge.on { display: inline-flex; }
+
+  /* Generic powerup badges (magnet, slow) stacked below the level HUD */
+  .pu-badge {
+    position: absolute;
+    z-index: 6;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(10, 8, 30, 0.55);
+    border: 1px solid rgba(180, 180, 255, 0.22);
+    color: #eaf6ff;
+    font: 700 11px/1 "Noto Sans Georgian", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .pu-badge.on { display: inline-flex; }
+  .pu-badge.magnet {
+    left: 22px; top: 58px;
+    border-color: rgba(255, 130, 200, 0.55);
+    color: #ffd6ec;
+    box-shadow: 0 0 12px rgba(255, 90, 170, 0.35);
+  }
+  .pu-badge.slow {
+    left: 22px; top: 90px;
+    border-color: rgba(170, 220, 255, 0.55);
+    color: #d6ecff;
+    box-shadow: 0 0 12px rgba(120, 180, 240, 0.35);
+  }
+
+  /* Combo + coin-streak counters */
+  .combo-hud {
+    position: absolute;
+    left: 22px; top: 122px;
+    z-index: 6;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(40, 14, 6, 0.6);
+    border: 1px solid rgba(255, 170, 60, 0.45);
+    color: #ffe0a8;
+    font: 800 12px/1 "Noto Sans Georgian", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .combo-hud.on { display: inline-flex; }
+  .combo-hud.active {
+    background: rgba(80, 20, 8, 0.72);
+    border-color: rgba(255, 180, 70, 0.95);
+    color: #fff2c0;
+    animation: combo-pulse 0.55s ease-in-out infinite alternate;
+  }
+  @keyframes combo-pulse {
+    from { filter: brightness(1)   drop-shadow(0 0 6px  rgba(255,170,60,0.55)); }
+    to   { filter: brightness(1.3) drop-shadow(0 0 16px rgba(255,170,60,0.95)); }
+  }
+  .streak-hud {
+    position: absolute;
+    left: 22px; top: 154px;
+    z-index: 6;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(40, 30, 6, 0.55);
+    border: 1px solid rgba(255, 210, 90, 0.45);
+    color: #fff0b8;
+    font: 800 12px/1 "Noto Sans Georgian", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .streak-hud.on { display: inline-flex; }
+
+  /* Centered bonus banner (combo/streak rewards) */
+  .bonus-banner {
+    position: absolute;
+    left: 50%; top: 32%;
+    transform: translate(-50%, -50%) scale(0.8);
+    z-index: 17;
+    pointer-events: none;
+    opacity: 0;
+    font: 800 clamp(24px, 4vw, 48px)/1 "Noto Sans Georgian", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    color: #fff4c8;
+    text-shadow:
+      0 0 16px rgba(255, 180, 60, 0.9),
+      0 0 32px rgba(255, 120, 40, 0.7),
+      0 3px 0 rgba(40, 10, 0, 0.7);
+    white-space: nowrap;
+  }
+  .bonus-banner.show {
+    animation: bonus-pop 1.2s cubic-bezier(.2,1.4,.5,1) forwards;
+  }
+  @keyframes bonus-pop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    25%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    60%  { opacity: 1; transform: translate(-50%, -60%) scale(1.0); }
+    100% { opacity: 0; transform: translate(-50%, -80%) scale(0.95); }
+  }
 
     /* ----------------------------------------------------------------
      Shockwave rings + fullscreen flash + screen shake (player death)
@@ -1296,6 +1410,31 @@
       <span id="dsTime">10</span>s
     </div>
 
+    <!-- Magnet + slow-motion badges -->
+    <div class="pu-badge magnet" id="magnetBadge" aria-live="polite">
+      <span aria-hidden="true">🧲</span>
+      <span id="magnetTime">8</span>s
+    </div>
+    <div class="pu-badge slow" id="slowBadge" aria-live="polite">
+      <span aria-hidden="true">⏱</span>
+      <span id="slowTime">10</span>s
+    </div>
+
+    <!-- Combo + coin streak HUDs -->
+    <div class="combo-hud" id="comboHud" aria-live="polite">
+      <span aria-hidden="true">🔥</span>
+      <span>კომბო</span>
+      <span id="comboCount">0</span>
+    </div>
+    <div class="streak-hud" id="streakHud" aria-live="polite">
+      <span aria-hidden="true">✨</span>
+      <span>სერია</span>
+      <span id="streakCount">0</span>
+    </div>
+
+    <!-- Bonus banner (combo/streak rewards) -->
+    <div id="bonusBanner" class="bonus-banner" aria-hidden="true"></div>
+
     <!-- Life meter -->
     <div class="life-meter" aria-label="სიცოცხლე">
       <span class="life-label">HP</span>
@@ -1702,9 +1841,65 @@
     if (GAME.hp <= 0) gameOver();
   }
   window.__damage = damage;
+  window.__heal = function (n) {
+    if (GAME.over) return;
+    GAME.hp = Math.min(GAME.maxHp, GAME.hp + n);
+    renderLife();
+  };
+  window.__renderLife = renderLife;
   const scoreEl = document.getElementById('score');
   const levelEl = document.getElementById('level');
   const roundBannerEl = document.getElementById('roundBanner');
+  const bonusBannerEl = document.getElementById('bonusBanner');
+
+  // ---- Combo + coin-streak tracking ----
+  const comboHud     = document.getElementById('comboHud');
+  const comboCountEl = document.getElementById('comboCount');
+  const streakHud    = document.getElementById('streakHud');
+  const streakCountEl= document.getElementById('streakCount');
+  const COMBO_THRESHOLD      = 5;
+  const COMBO_MULT           = 2;
+  const COIN_STREAK_THRESHOLD= 5;
+  const COIN_STREAK_BONUS    = 25;
+  let comboCount = 0, comboActive = false;
+  let coinStreak = 0;
+
+  function updateComboHud() {
+    if (!comboHud) return;
+    if (comboCount > 0) {
+      comboHud.classList.add('on');
+      comboHud.classList.toggle('active', comboActive);
+      if (comboCountEl) comboCountEl.textContent = String(comboCount);
+    } else {
+      comboHud.classList.remove('on', 'active');
+    }
+  }
+  function breakCombo() {
+    if (comboCount === 0 && !comboActive) return;
+    comboCount = 0; comboActive = false;
+    updateComboHud();
+  }
+  function updateStreakHud() {
+    if (!streakHud) return;
+    if (coinStreak > 0) {
+      streakHud.classList.add('on');
+      if (streakCountEl) streakCountEl.textContent = String(coinStreak);
+    } else {
+      streakHud.classList.remove('on');
+    }
+  }
+  function breakStreak() {
+    if (coinStreak === 0) return;
+    coinStreak = 0;
+    updateStreakHud();
+  }
+  function showBonusBanner(text) {
+    if (!bonusBannerEl) return;
+    bonusBannerEl.textContent = text;
+    bonusBannerEl.classList.remove('show');
+    void bonusBannerEl.offsetWidth;
+    bonusBannerEl.classList.add('show');
+  }
 
   // Level config — 10 rounds, speed ramps up. Level 1 is slow on purpose
   // so players can learn the controls. Multiplier applies to base UFO vy
@@ -2487,9 +2682,59 @@
     renderLife();
     enemyBolts.forEach(b => b.el.remove()); enemyBolts.length = 0;
     setLevel(1);
+    breakCombo();
+    breakStreak();
     GAME.over = false;
     nextSpawn = performance.now() + 600;
   }
+
+  // Shared kill-reward path. Caller handles burst + DOM removal + splice.
+  function registerUFOKill(u, kx, ky) {
+    const base = u.isGun ? 4 : 1;
+    const mult = comboActive ? COMBO_MULT : 1;
+    GAME.score += base * mult;
+    if (scoreEl) {
+      scoreEl.textContent = String(GAME.score);
+      scoreEl.classList.add('bump');
+      setTimeout(() => scoreEl.classList.remove('bump'), 160);
+    }
+    const coinCount = u.isGun ? 4 : 1;
+    for (let ci = 0; ci < coinCount; ci++) {
+      setTimeout(() => flyCoin(kx + (Math.random()-0.5)*30, ky + (Math.random()-0.5)*30), ci * 70);
+    }
+    comboCount++;
+    if (comboCount >= COMBO_THRESHOLD && !comboActive) {
+      comboActive = true;
+      showBonusBanner('×' + COMBO_MULT + ' კომბო!');
+    }
+    updateComboHud();
+    maybeLevelUp();
+    if (window.__onUFOKill) window.__onUFOKill(kx, ky);
+  }
+
+  // Bomb powerup: wipe every UFO and every enemy bolt on screen.
+  window.__killAllUFOs = function () {
+    for (let i = ufos.length - 1; i >= 0; i--) {
+      const u = ufos[i];
+      const kx = u.x + u.w/2, ky = u.y + u.h/2;
+      burst(kx, ky, { count: 22, hue: 'warm' });
+      u.el.remove();
+      registerUFOKill(u, kx, ky);
+    }
+    ufos.length = 0;
+    for (const b of enemyBolts) b.el.remove();
+    enemyBolts.length = 0;
+    try { SFX.megaExplosion(); } catch (_) {}
+  };
+
+  // Called by the powerup module's shield when absorbing a blow.
+  window.__shieldFlash = function () {
+    const halo = document.getElementById('shieldHalo');
+    if (!halo) return;
+    halo.style.transition = 'filter .12s';
+    halo.style.filter = 'brightness(2) saturate(1.5)';
+    setTimeout(() => halo && (halo.style.filter = ''), 140);
+  };
 
   // ---- Main combat tick ----
   let lastFrameTs = 0;
@@ -2506,6 +2751,11 @@
       if (step > 3)   step = 3;
     }
     lastFrameTs = now;
+
+    // Slow-motion powerup: halves the world's step (UFOs, enemy bolts, pickups);
+    // the player and their lasers keep normal speed.
+    const slowK = (window.POWERUP && window.POWERUP.slowActive()) ? 0.5 : 1;
+    const wStep = step * slowK;
 
     // Spawn UFOs
     if (!GAME.over && now >= nextSpawn) {
@@ -2530,9 +2780,9 @@
     // Update UFOs
     for (let i = ufos.length - 1; i >= 0; i--) {
       const u = ufos[i];
-      u.sway += 0.04 * step;
-      u.x += (u.vx + Math.sin(u.sway) * u.swayAmp) * step;
-      u.y += u.vy * step;
+      u.sway += 0.04 * wStep;
+      u.x += (u.vx + Math.sin(u.sway) * u.swayAmp) * wStep;
+      u.y += u.vy * wStep;
       u.el.style.left = u.x + 'px';
       u.el.style.top  = u.y + 'px';
 
@@ -2548,19 +2798,7 @@
             burst(kx, ky, { count: 22, hue: 'warm' });
             u.el.remove(); ufos.splice(i, 1);
             try { SFX.bigKill(); } catch (_) {}
-            const reward = u.isGun ? 4 : 1;
-            GAME.score += reward;
-            maybeLevelUp();
-            if (scoreEl) {
-              scoreEl.textContent = String(GAME.score);
-              scoreEl.classList.add('bump');
-              setTimeout(() => scoreEl.classList.remove('bump'), 160);
-            }
-            const coinCount = u.isGun ? 4 : 1;
-            for (let ci = 0; ci < coinCount; ci++) {
-              setTimeout(() => flyCoin(kx + (Math.random()-0.5)*30, ky + (Math.random()-0.5)*30), ci * 70);
-            }
-            if (window.__onUFOKill) window.__onUFOKill(kx, ky);
+            registerUFOKill(u, kx, ky);
             break;
           } else {
             u.el.classList.add('flash');
@@ -2572,30 +2810,40 @@
 
       // Gun UFOs: shoot at player periodically
       if (u.isGun && !GAME.over) {
-        const interval = Math.max(450, 1200 - (GAME.level * 90));
+        const interval = Math.max(750, 1700 - (GAME.level * 90));
         if (now - u.lastShot > interval && u.y > -20 && u.y < window.innerHeight * 0.8) {
           u.lastShot = now;
           spawnEnemyBolt(u.x + u.w / 2, u.y + u.h * 0.95);
         }
       }
-      // Rocket collision → game over
+      // Rocket collision — shield absorbs and counts as a kill; else game over.
       if (!GAME.over && hitRocketVsUFO(u)) {
-        burst(u.x + u.w/2, u.y + u.h/2, { count: 30, hue: 'warm' });
+        const kx = u.x + u.w/2, ky = u.y + u.h/2;
+        if (window.POWERUP && window.POWERUP.shieldActive()) {
+          burst(kx, ky, { count: 26, hue: 'cool' });
+          try { SFX.bigKill(); } catch (_) {}
+          if (window.__shieldFlash) window.__shieldFlash();
+          u.el.remove(); ufos.splice(i, 1);
+          registerUFOKill(u, kx, ky);
+          continue;
+        }
+        burst(kx, ky, { count: 30, hue: 'warm' });
         u.el.remove(); ufos.splice(i, 1);
         gameOver();
         continue;
       }
 
-      // Offscreen cull (bottom)
+      // Offscreen cull (bottom) — UFO escaped, breaks the kill combo.
       if (u.y > window.innerHeight + 40) {
         u.el.remove(); ufos.splice(i, 1);
+        breakCombo();
       }
     }
 
     // Update enemy bolts
     for (let i = enemyBolts.length - 1; i >= 0; i--) {
       const b = enemyBolts[i];
-      b.x += b.vx * step; b.y += b.vy * step;
+      b.x += b.vx * wStep; b.y += b.vy * wStep;
       b.el.style.left = b.x + 'px';
       b.el.style.top  = b.y + 'px';
       // Hit rocket
@@ -2767,11 +3015,25 @@
       spawnPickup();
       nextPickup = now + PICKUP_MIN + Math.random() * (PICKUP_MAX - PICKUP_MIN);
     }
+    const slowK = (window.POWERUP && window.POWERUP.slowActive()) ? 0.5 : 1;
+    const wStep = step * slowK;
+    const magnet = !!(window.POWERUP && window.POWERUP.magnetActive());
     for (let i = pickups.length - 1; i >= 0; i--) {
       const p = pickups[i];
-      p.sway += 0.05 * step;
-      p.x += (p.vx + Math.sin(p.sway) * 0.8) * step;
-      p.y += p.vy * step;
+      if (magnet) {
+        // Pull the coin toward the rocket — overrides natural fall.
+        const c = rocketCenter();
+        const dx = c.x - (p.x + p.w / 2);
+        const dy = c.y - (p.y + p.h / 2);
+        const d  = Math.hypot(dx, dy) || 1;
+        const pull = 7.5;
+        p.x += (dx / d) * pull * step;
+        p.y += (dy / d) * pull * step;
+      } else {
+        p.sway += 0.05 * wStep;
+        p.x += (p.vx + Math.sin(p.sway) * 0.8) * wStep;
+        p.y += p.vy * wStep;
+      }
       p.el.style.left = p.x + 'px';
       p.el.style.top  = p.y + 'px';
 
@@ -2781,6 +3043,14 @@
         burst(cx, cy, { count: 14, hue: 'warm' });
         try { SFX.coin(); } catch (_) {}
         GAME.score += 5;
+        // Coin streak: 5 in a row awards a bonus and resets.
+        coinStreak++;
+        if (coinStreak >= COIN_STREAK_THRESHOLD) {
+          GAME.score += COIN_STREAK_BONUS;
+          showBonusBanner('+' + COIN_STREAK_BONUS + ' სერია!');
+          coinStreak = 0;
+        }
+        updateStreakHud();
         if (scoreEl) {
           scoreEl.textContent = String(GAME.score);
           scoreEl.classList.remove('bump');
@@ -2795,6 +3065,7 @@
       }
       if (p.y > window.innerHeight + 40) {
         p.el.remove(); pickups.splice(i, 1);
+        breakStreak();
       }
     }
     requestAnimationFrame(pickupTick);
@@ -2952,7 +3223,7 @@
 })();
 </script>
 <script>
-// ---------------- Power-ups (shield + double-shot) ----------------
+// ---------------- Power-ups (shield, double-shot, bomb, magnet, heal, slow) ----------------
 (function () {
   const host = document.getElementById('powerups');
   const halo = document.getElementById('shieldHalo');
@@ -2961,16 +3232,28 @@
   const numEl   = document.getElementById('shieldNum');
   const dsBadge = document.getElementById('dsBadge');
   const dsTime  = document.getElementById('dsTime');
+  const magnetBadge = document.getElementById('magnetBadge');
+  const magnetTime  = document.getElementById('magnetTime');
+  const slowBadge   = document.getElementById('slowBadge');
+  const slowTime    = document.getElementById('slowTime');
   if (!host) return;
 
-  const DUR = 10; // seconds
+  // Durations (seconds) per kind
+  const DUR_SHIELD = 10;
+  const DUR_DOUBLE = 10;
+  const DUR_MAGNET = 8;
+  const DUR_SLOW   = 10;
 
   // State exposed globally so combat/laser code can read it
   const PU = window.POWERUP = {
     shieldUntil: 0,
     doubleUntil: 0,
+    magnetUntil: 0,
+    slowUntil:   0,
     shieldActive() { return performance.now() < this.shieldUntil; },
     doubleActive() { return performance.now() < this.doubleUntil; },
+    magnetActive() { return performance.now() < this.magnetUntil; },
+    slowActive()   { return performance.now() < this.slowUntil;   },
   };
 
   const powerups = [];
@@ -2982,43 +3265,144 @@
     return true;
   }
 
-  function spawnPowerup() {
-    const kind = Math.random() < 0.5 ? 'shield' : 'double';
-    const el = document.createElement('div');
-    el.className = 'powerup ' + kind;
-    if (kind === 'shield') {
-      el.innerHTML = `
+  // Weighted pick. Heal only joins the pool when the player can actually use it.
+  function pickKind() {
+    const pool = [
+      ['shield', 22],
+      ['double', 22],
+      ['magnet', 18],
+      ['slow',   16],
+      ['bomb',   12],
+    ];
+    if (window.GAME && window.GAME.hp < window.GAME.maxHp) pool.push(['heal', 10]);
+    const total = pool.reduce((s, p) => s + p[1], 0);
+    let r = Math.random() * total;
+    for (const [kind, w] of pool) {
+      r -= w;
+      if (r <= 0) return kind;
+    }
+    return pool[0][0];
+  }
+
+  function svgFor(kind) {
+    const uid = Date.now().toString(36) + Math.floor(Math.random()*1e6).toString(36);
+    switch (kind) {
+      case 'shield': return `
         <svg viewBox="0 0 42 42" aria-hidden="true">
           <defs>
-            <linearGradient id="shldG_${Date.now()}" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="shldG_${uid}" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="#c6eeff"/>
               <stop offset="55%" stop-color="#4fa8ff"/>
               <stop offset="100%" stop-color="#18427a"/>
             </linearGradient>
           </defs>
           <path d="M21 3 L37 9 L37 22 C37 31 30 37 21 39 C12 37 5 31 5 22 L5 9 Z"
-                fill="url(#shldG_${Date.now()})" stroke="#0b2a52" stroke-width="1.5"/>
+                fill="url(#shldG_${uid})" stroke="#0b2a52" stroke-width="1.5"/>
           <path d="M21 12 L29 17 V25 C29 30 26 32 21 34 C16 32 13 30 13 25 V17 Z"
                 fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.6)" stroke-width="0.8"/>
-          <path d="M15 21 L20 26 L28 17" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M15 21 L20 26 L28 17" fill="none" stroke="#ffffff" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round"/>
         </svg>`;
-    } else {
-      el.innerHTML = `
+      case 'double': return `
         <svg viewBox="0 0 42 42" aria-hidden="true">
           <defs>
-            <linearGradient id="dsG_${Date.now()}" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="dsG_${uid}" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="#ffe8b0"/>
               <stop offset="55%" stop-color="#ff9a3d"/>
               <stop offset="100%" stop-color="#6b2a08"/>
             </linearGradient>
           </defs>
-          <circle cx="21" cy="21" r="18" fill="url(#dsG_${Date.now()})" stroke="#4a1c03" stroke-width="1.5"/>
-          <!-- two upward arrows -->
-          <path d="M15 28 L15 16 M11 20 L15 16 L19 20" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M27 28 L27 16 M23 20 L27 16 L31 20" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="21" cy="21" r="18" fill="url(#dsG_${uid})" stroke="#4a1c03" stroke-width="1.5"/>
+          <path d="M15 28 L15 16 M11 20 L15 16 L19 20" fill="none" stroke="#fff"
+                stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M27 28 L27 16 M23 20 L27 16 L31 20" fill="none" stroke="#fff"
+                stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+      case 'bomb': return `
+        <svg viewBox="0 0 42 42" aria-hidden="true">
+          <defs>
+            <radialGradient id="bmbG_${uid}" cx="38%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#6a6d80"/>
+              <stop offset="55%" stop-color="#2a2d38"/>
+              <stop offset="100%" stop-color="#05060a"/>
+            </radialGradient>
+          </defs>
+          <circle cx="20" cy="26" r="13" fill="url(#bmbG_${uid})" stroke="#000" stroke-width="1.4"/>
+          <ellipse cx="15" cy="22" rx="3" ry="2" fill="rgba(255,255,255,0.35)"/>
+          <rect x="18" y="10" width="5" height="4" rx="0.8" fill="#2a2d38" stroke="#000" stroke-width="0.6"/>
+          <path d="M20 10 Q 26 5 30 4" stroke="#8a5a20" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+          <circle cx="30" cy="4"  r="2.6" fill="#ffd76a"/>
+          <circle cx="30" cy="4"  r="4"   fill="none" stroke="#ff8a3d" stroke-width="1" opacity="0.8"/>
+          <circle cx="30" cy="4"  r="1.2" fill="#fff"/>
+          <path d="M20 20 L 20 32 M 14 26 L 26 26" stroke="#ff5a6e" stroke-width="1.4" opacity="0.75"/>
+        </svg>`;
+      case 'magnet': return `
+        <svg viewBox="0 0 42 42" aria-hidden="true">
+          <defs>
+            <linearGradient id="mgG_${uid}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ff9cb0"/>
+              <stop offset="55%" stop-color="#d63d4a"/>
+              <stop offset="100%" stop-color="#4a0912"/>
+            </linearGradient>
+          </defs>
+          <path d="M 8 10 L 8 25 Q 8 35 21 35 Q 34 35 34 25 L 34 10 L 27 10 L 27 25
+                   Q 27 29 21 29 Q 15 29 15 25 L 15 10 Z"
+                fill="url(#mgG_${uid})" stroke="#2a0510" stroke-width="1.4"/>
+          <rect x="8"  y="10" width="7" height="5" fill="#d0d4e0" stroke="#2a0510" stroke-width="0.8"/>
+          <rect x="27" y="10" width="7" height="5" fill="#d0d4e0" stroke="#2a0510" stroke-width="0.8"/>
+          <text x="11.5" y="14" font-family="ui-sans-serif, sans-serif" font-size="4"
+                font-weight="800" fill="#2a0510" text-anchor="middle">N</text>
+          <text x="30.5" y="14" font-family="ui-sans-serif, sans-serif" font-size="4"
+                font-weight="800" fill="#2a0510" text-anchor="middle">S</text>
+          <path d="M4 6 L 10 8 M 38 6 L 32 8" stroke="#ffd76a" stroke-width="1.4"
+                stroke-linecap="round" opacity="0.85"/>
+        </svg>`;
+      case 'heal': return `
+        <svg viewBox="0 0 42 42" aria-hidden="true">
+          <defs>
+            <radialGradient id="hlG_${uid}" cx="35%" cy="30%" r="75%">
+              <stop offset="0%" stop-color="#ffc3ce"/>
+              <stop offset="55%" stop-color="#ff5a6e"/>
+              <stop offset="100%" stop-color="#7a0e1a"/>
+            </radialGradient>
+          </defs>
+          <path d="M21 36 C 17 33, 5 25, 5 15 C 5 10, 9 6, 14 6 C 17 6, 20 8, 21 11
+                   C 22 8, 25 6, 28 6 C 33 6, 37 10, 37 15 C 37 25, 25 33, 21 36 Z"
+                fill="url(#hlG_${uid})" stroke="#4a0912" stroke-width="1.4"/>
+          <path d="M12 13 Q 11 17, 15 21" stroke="rgba(255,255,255,0.75)"
+                stroke-width="2" fill="none" stroke-linecap="round"/>
+          <rect x="19" y="13" width="4" height="12" fill="#fff" rx="0.6"/>
+          <rect x="15" y="17" width="12" height="4" fill="#fff" rx="0.6"/>
+        </svg>`;
+      case 'slow': return `
+        <svg viewBox="0 0 42 42" aria-hidden="true">
+          <defs>
+            <radialGradient id="slG_${uid}" cx="40%" cy="35%" r="70%">
+              <stop offset="0%" stop-color="#f2f8ff"/>
+              <stop offset="55%" stop-color="#b8d8f4"/>
+              <stop offset="100%" stop-color="#3a6a9a"/>
+            </radialGradient>
+          </defs>
+          <circle cx="21" cy="21" r="16" fill="url(#slG_${uid})" stroke="#1a3a5c" stroke-width="1.6"/>
+          <circle cx="21" cy="21" r="13" fill="none" stroke="rgba(26,58,92,0.45)" stroke-width="0.8"/>
+          <line x1="21" y1="8"  x2="21" y2="11" stroke="#1a3a5c" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="21" y1="31" x2="21" y2="34" stroke="#1a3a5c" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="8"  y1="21" x2="11" y2="21" stroke="#1a3a5c" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="31" y1="21" x2="34" y2="21" stroke="#1a3a5c" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="21" y1="21" x2="21" y2="12" stroke="#1a2240" stroke-width="2"   stroke-linecap="round"/>
+          <line x1="21" y1="21" x2="28" y2="24" stroke="#d63d4a" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="21" cy="21" r="1.8" fill="#1a2240"/>
         </svg>`;
     }
-    const size = 44;
+    return '';
+  }
+
+  function spawnPowerup() {
+    const kind = pickKind();
+    const el = document.createElement('div');
+    el.className = 'powerup ' + kind;
+    el.innerHTML = svgFor(kind);
+    const size = 46;
     const x = 40 + Math.random() * (window.innerWidth - 80);
     const y = -size;
     el.style.left = x + 'px';
@@ -3039,15 +3423,55 @@
   }
 
   function activateShield() {
-    PU.shieldUntil = performance.now() + DUR * 1000;
+    PU.shieldUntil = performance.now() + DUR_SHIELD * 1000;
     halo.style.display = '';
     timerEl.style.display = '';
     try { window.SFX && SFX.shieldPick(); } catch(_) {}
   }
   function activateDouble() {
-    PU.doubleUntil = performance.now() + DUR * 1000;
+    PU.doubleUntil = performance.now() + DUR_DOUBLE * 1000;
     dsBadge.classList.add('on');
     try { window.SFX && SFX.doubleShotPick(); } catch(_) {}
+  }
+  function activateMagnet() {
+    PU.magnetUntil = performance.now() + DUR_MAGNET * 1000;
+    if (magnetBadge) magnetBadge.classList.add('on');
+    try { window.SFX && SFX.doubleShotPick(); } catch(_) {}
+  }
+  function activateSlow() {
+    PU.slowUntil = performance.now() + DUR_SLOW * 1000;
+    if (slowBadge) slowBadge.classList.add('on');
+    try { window.SFX && SFX.shieldPick(); } catch(_) {}
+  }
+  function activateBomb() {
+    if (window.__killAllUFOs) window.__killAllUFOs();
+    const fx = document.getElementById('fx');
+    if (fx) {
+      const flash = document.createElement('div');
+      flash.className = 'bigflash';
+      fx.appendChild(flash);
+      setTimeout(() => flash.remove(), 700);
+    }
+    const stage = document.querySelector('.stage');
+    if (stage) {
+      stage.classList.add('shake');
+      setTimeout(() => stage.classList.remove('shake'), 700);
+    }
+  }
+  function activateHeal() {
+    if (window.__heal) window.__heal(1);
+    try { window.SFX && SFX.shieldPick(); } catch(_) {}
+  }
+
+  function activate(kind) {
+    switch (kind) {
+      case 'shield': return activateShield();
+      case 'double': return activateDouble();
+      case 'magnet': return activateMagnet();
+      case 'slow':   return activateSlow();
+      case 'bomb':   return activateBomb();
+      case 'heal':   return activateHeal();
+    }
   }
 
   // Make damage() respect shield — patch window.__damage
@@ -3077,16 +3501,17 @@
       nextSpawn = now + 15000 + Math.random() * 10000;
     }
 
+    // Slow-motion also affects falling powerup items
+    const slowK = PU.slowActive() ? 0.5 : 1;
     for (let i = powerups.length - 1; i >= 0; i--) {
       const p = powerups[i];
-      p.sway += 0.05 * step;
-      p.x += Math.sin(p.sway) * 0.6 * step;
-      p.y += p.vy * step;
+      p.sway += 0.05 * step * slowK;
+      p.x += Math.sin(p.sway) * 0.6 * step * slowK;
+      p.y += p.vy * step * slowK;
       p.el.style.left = p.x + 'px';
       p.el.style.top  = p.y + 'px';
       if (hitRocket(p)) {
-        if (p.kind === 'shield') activateShield();
-        else activateDouble();
+        activate(p.kind);
         p.el.remove(); powerups.splice(i, 1);
         continue;
       }
@@ -3098,7 +3523,7 @@
     // Shield timer visuals — follow the rocket every frame
     if (PU.shieldActive()) {
       const remain = (PU.shieldUntil - now) / 1000;
-      const pct = remain / DUR;
+      const pct = remain / DUR_SHIELD;
       const CIRC = 163.36;
       if (ringEl) ringEl.setAttribute('stroke-dashoffset', String(CIRC * (1 - pct)));
       if (numEl)  numEl.textContent = Math.max(0, Math.ceil(remain));
@@ -3120,13 +3545,31 @@
       dsBadge.classList.remove('on');
     }
 
+    // Magnet badge timer
+    if (PU.magnetActive()) {
+      const remain = (PU.magnetUntil - now) / 1000;
+      if (magnetTime) magnetTime.textContent = Math.max(0, Math.ceil(remain));
+    } else if (magnetBadge && magnetBadge.classList.contains('on')) {
+      magnetBadge.classList.remove('on');
+    }
+
+    // Slow badge timer
+    if (PU.slowActive()) {
+      const remain = (PU.slowUntil - now) / 1000;
+      if (slowTime) slowTime.textContent = Math.max(0, Math.ceil(remain));
+    } else if (slowBadge && slowBadge.classList.contains('on')) {
+      slowBadge.classList.remove('on');
+    }
+
     // Clear powerups on game over
     if (window.GAME && window.GAME.over) {
       powerups.forEach(p => p.el.remove()); powerups.length = 0;
-      PU.shieldUntil = 0; PU.doubleUntil = 0;
+      PU.shieldUntil = 0; PU.doubleUntil = 0; PU.magnetUntil = 0; PU.slowUntil = 0;
       halo.style.display = 'none';
       timerEl.style.display = 'none';
       dsBadge.classList.remove('on');
+      if (magnetBadge) magnetBadge.classList.remove('on');
+      if (slowBadge)   slowBadge.classList.remove('on');
     }
 
     requestAnimationFrame(tick);
