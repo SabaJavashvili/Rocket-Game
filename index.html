@@ -804,8 +804,7 @@
     text-shadow: 0 0 8px rgba(80,180,255,0.9);
   }
 
-  /* Unified top-left HUD stack: timed-powerup badges + combo/streak.
-     Sits below the Round indicator (level-hud is 18px top, ~34px tall).
+  /* Top-left HUD: powerup countdowns directly below the Round indicator.
      Children are display:none by default and flex in when `.on`. */
   .hud-stack-left {
     position: absolute;
@@ -817,6 +816,23 @@
     align-items: flex-start;
     gap: 6px;
     pointer-events: none;
+  }
+
+  /* Combo + streak multipliers live further down the left edge so the
+     powerup countdown above has breathing room. */
+  .hud-stack-mult {
+    position: absolute;
+    top: 320px;
+    left: 22px;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    pointer-events: none;
+  }
+  @media (max-height: 640px) {
+    .hud-stack-mult { top: 240px; }
   }
 
   /* Active double-shot badge (now part of the left-hand stack) */
@@ -1479,7 +1495,7 @@
 
       <!-- Double-shot -->
       <div class="ds-badge" id="dsBadge" aria-live="polite">
-        <span aria-hidden="true">⇅⇅</span>
+        <span aria-hidden="true">⇈</span>
         <span id="dsTime">10</span>s
         <div class="pu-timebar"><div class="pu-timebar-fill" id="dsBar"></div></div>
       </div>
@@ -1497,8 +1513,10 @@
         <span id="slowTime">10</span>s
         <div class="pu-timebar"><div class="pu-timebar-fill" id="slowBar"></div></div>
       </div>
+    </div>
 
-      <!-- Combo + coin-streak counters -->
+    <!-- Score multipliers (combo + coin streak) sit below the powerup stack -->
+    <div class="hud-stack-mult">
       <div class="combo-hud" id="comboHud" aria-live="polite">
         <span aria-hidden="true">🛸</span>
         <span>X2</span>
@@ -1596,30 +1614,19 @@
         <div class="stick-knob" id="stickKnob"></div>
       </div>
       <button class="fire-btn" id="fireBtn" aria-label="სროლა">
-        <svg viewBox="0 0 48 48" aria-hidden="true">
-          <defs>
-            <linearGradient id="bulletTip" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stop-color="#fff2c4"/>
-              <stop offset="55%"  stop-color="#ff9a4a"/>
-              <stop offset="100%" stop-color="#b32a1a"/>
-            </linearGradient>
-            <radialGradient id="bulletTrail" cx="50%" cy="100%" r="60%">
-              <stop offset="0%"   stop-color="#ffe08a" stop-opacity="0.9"/>
-              <stop offset="100%" stop-color="#ff5a3a" stop-opacity="0"/>
-            </radialGradient>
-          </defs>
-          <!-- Trailing flame -->
-          <ellipse cx="24" cy="42" rx="6" ry="5" fill="url(#bulletTrail)"/>
-          <!-- Body (rounded, pointed top) -->
-          <path d="M18 34 L18 16 Q18 6 24 3 Q30 6 30 16 L30 34 Z"
-                fill="url(#bulletTip)"
-                stroke="#5a1208" stroke-width="1.2"/>
-          <!-- Casing rim lines -->
-          <rect x="18" y="22" width="12" height="2" fill="#5a1208" opacity="0.5"/>
-          <rect x="18" y="30" width="12" height="2" fill="#5a1208" opacity="0.5"/>
-          <!-- Body shine -->
-          <rect x="20" y="10" width="2" height="20" rx="1"
-                fill="#ffffff" opacity="0.55"/>
+        <svg viewBox="0 0 48 48" aria-hidden="true" fill="none"
+             stroke="#ffffff" stroke-width="2.6" stroke-linecap="round">
+          <!-- Outer ring -->
+          <circle cx="24" cy="24" r="17" stroke-width="3"/>
+          <!-- Inner ring -->
+          <circle cx="24" cy="24" r="9" stroke-width="2"/>
+          <!-- Cross hairs (with a tiny center gap) -->
+          <line x1="24" y1="2"  x2="24" y2="14"/>
+          <line x1="24" y1="34" x2="24" y2="46"/>
+          <line x1="2"  y1="24" x2="14" y2="24"/>
+          <line x1="34" y1="24" x2="46" y2="24"/>
+          <!-- Center dot -->
+          <circle cx="24" cy="24" r="2" fill="#ffffff" stroke="none"/>
         </svg>
       </button>
     </div>
