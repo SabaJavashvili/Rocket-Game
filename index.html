@@ -1432,7 +1432,7 @@
 
     <!-- Combo + coin streak HUDs -->
     <div class="combo-hud" id="comboHud" aria-live="polite">
-      <span aria-hidden="true">👾</span>
+      <span aria-hidden="true">🛸</span>
       <span>X2</span>
       <span id="comboCount">0/10</span>
     </div>
@@ -2434,8 +2434,8 @@
     if (GAME.over) return;
     // Gun UFO probability — zero before round 4, ramping up after
     let gunChance = 0;
-    if (GAME.level >= 4)  gunChance = 0.12;
-    if (GAME.level >= 5)  gunChance = 0.25;
+    if (GAME.level >= 4)  gunChance = 0.18;
+    if (GAME.level >= 5)  gunChance = 0.30;
     if (GAME.level >= 6)  gunChance = 0.45;
     if (GAME.level >= 7)  gunChance = 0.55;
     if (GAME.level >= 8)  gunChance = 0.65;
@@ -2573,7 +2573,7 @@
       hp: isGun ? 3 : 2, maxHp: isGun ? 3 : 2,
       isGun,
       isSine,
-      lastShot: performance.now() + 800 + Math.random() * 400,
+      lastShot: performance.now() + 400 + Math.random() * 300,
     });
   }
 
@@ -2895,7 +2895,7 @@
 
       // Gun UFOs: shoot at player periodically
       if (u.isGun && !GAME.over) {
-        const interval = Math.max(950, 2100 - (GAME.level * 90));
+        const interval = Math.max(850, 1900 - (GAME.level * 90));
         if (now - u.lastShot > interval && u.y > -20 && u.y < window.innerHeight * 0.8) {
           u.lastShot = now;
           spawnEnemyBolt(u.x + u.w / 2, u.y + u.h * 0.95);
@@ -3019,8 +3019,10 @@
     const s = rocketSize();
     const pcx = p.x + p.w / 2, pcy = p.y + p.h / 2;
     const dx = c.x - pcx, dy = c.y - pcy;
-    const rr = s.h * 0.30 + p.w * 0.55;
-    return dx*dx + dy*dy < rr*rr;
+    // Ellipse matching the rocket silhouette so the nose picks up coins too.
+    const rx = s.w * 0.55 + p.w * 0.55;
+    const ry = s.h * 0.50 + p.w * 0.55;
+    return (dx*dx)/(rx*rx) + (dy*dy)/(ry*ry) < 1;
   }
 
   // ---- Georgian kill quotes ----
@@ -3500,9 +3502,14 @@
   }
   function hitRocket(p) {
     const c = rocketCenter();
-    const pcx = p.x, pcy = p.y;
-    const dx = c.x - pcx, dy = c.y - pcy;
-    return dx*dx + dy*dy < 60*60;
+    // Ellipse sized to the rocket silhouette (wrap is min(110px, 9vw) × 2.2).
+    // A circle around the wrap's center couldn't reach the nose.
+    const w = Math.min(110, window.innerWidth * 0.09);
+    const h = w * 2.2;
+    const dx = c.x - p.x, dy = c.y - p.y;
+    const rx = w * 0.55 + 22;
+    const ry = h * 0.50 + 22;
+    return (dx*dx)/(rx*rx) + (dy*dy)/(ry*ry) < 1;
   }
 
   function activateShield() {
