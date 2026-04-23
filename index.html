@@ -902,6 +902,12 @@
     -webkit-backdrop-filter: blur(6px);
   }
   .streak-hud.on { display: inline-flex; }
+  .streak-hud .streak-coin {
+    width: 16px; height: 16px;
+    display: inline-flex;
+    filter: drop-shadow(0 0 4px rgba(255,196,61,0.6));
+  }
+  .streak-hud .streak-coin svg { width: 100%; height: 100%; display: block; }
 
   /* Centered bonus banner (combo/streak rewards) */
   .bonus-banner {
@@ -1098,6 +1104,10 @@
   /* Gun-UFO variant gets a red tinted drop shadow */
   .ufo.gun { filter: drop-shadow(0 6px 14px rgba(0,0,0,0.55))
                     drop-shadow(0 0 16px rgba(255, 90, 110, 0.55)); }
+
+  /* Sine-wave UFO variant gets a purple tinted drop shadow */
+  .ufo.sine { filter: drop-shadow(0 6px 14px rgba(0,0,0,0.55))
+                     drop-shadow(0 0 16px rgba(180, 120, 255, 0.55)); }
 
   /* ----------------------------------------------------------------
      Level HUD + round-change banner
@@ -1422,14 +1432,27 @@
 
     <!-- Combo + coin streak HUDs -->
     <div class="combo-hud" id="comboHud" aria-live="polite">
-      <span aria-hidden="true">🔥</span>
-      <span>კომბო</span>
-      <span id="comboCount">0</span>
+      <span aria-hidden="true">👾</span>
+      <span>X2</span>
+      <span id="comboCount">0/10</span>
     </div>
     <div class="streak-hud" id="streakHud" aria-live="polite">
-      <span aria-hidden="true">✨</span>
-      <span>სერია</span>
-      <span id="streakCount">0</span>
+      <span class="streak-coin" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <defs>
+            <radialGradient id="streakCoinG" cx="35%" cy="30%" r="75%">
+              <stop offset="0%" stop-color="#fff4b8"/>
+              <stop offset="55%" stop-color="#ffc43d"/>
+              <stop offset="100%" stop-color="#b07106"/>
+            </radialGradient>
+          </defs>
+          <circle cx="12" cy="12" r="10" fill="url(#streakCoinG)" stroke="#7a4a00" stroke-width="1"/>
+          <circle cx="12" cy="12" r="7" fill="none" stroke="#a76a00" stroke-width="0.8" opacity="0.7"/>
+          <text x="12" y="15.8" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="9.5" font-weight="800" fill="#7a4a00">¤</text>
+        </svg>
+      </span>
+      <span>კომბო</span>
+      <span id="streakCount">0/5</span>
     </div>
 
     <!-- Bonus banner (combo/streak rewards) -->
@@ -1857,7 +1880,7 @@
   const comboCountEl = document.getElementById('comboCount');
   const streakHud    = document.getElementById('streakHud');
   const streakCountEl= document.getElementById('streakCount');
-  const COMBO_THRESHOLD      = 5;
+  const COMBO_THRESHOLD      = 10;
   const COMBO_MULT           = 2;
   const COIN_STREAK_THRESHOLD= 5;
   const COIN_STREAK_BONUS    = 25;
@@ -1869,7 +1892,11 @@
     if (comboCount > 0) {
       comboHud.classList.add('on');
       comboHud.classList.toggle('active', comboActive);
-      if (comboCountEl) comboCountEl.textContent = String(comboCount);
+      if (comboCountEl) {
+        comboCountEl.textContent = comboActive
+          ? String(comboCount)
+          : comboCount + '/' + COMBO_THRESHOLD;
+      }
     } else {
       comboHud.classList.remove('on', 'active');
     }
@@ -1883,7 +1910,7 @@
     if (!streakHud) return;
     if (coinStreak > 0) {
       streakHud.classList.add('on');
-      if (streakCountEl) streakCountEl.textContent = String(coinStreak);
+      if (streakCountEl) streakCountEl.textContent = coinStreak + '/' + COIN_STREAK_THRESHOLD;
     } else {
       streakHud.classList.remove('on');
     }
@@ -2360,20 +2387,31 @@
   const ufos = [];
   let nextSpawn = performance.now() + 800;
 
+  function getSineChance(lvl) {
+    if (lvl >= 8) return 0.35;
+    if (lvl >= 6) return 0.28;
+    if (lvl >= 4) return 0.22;
+    if (lvl >= 3) return 0.15;
+    return 0;
+  }
+
   function spawnUFO() {
     if (GAME.over) return;
     // Gun UFO probability — zero before round 4, ramping up after
     let gunChance = 0;
-    if (GAME.level >= 4)  gunChance = 0.22;
-    if (GAME.level >= 5)  gunChance = 0.35;
+    if (GAME.level >= 4)  gunChance = 0.12;
+    if (GAME.level >= 5)  gunChance = 0.25;
     if (GAME.level >= 6)  gunChance = 0.45;
     if (GAME.level >= 7)  gunChance = 0.55;
     if (GAME.level >= 8)  gunChance = 0.65;
     if (GAME.level >= 9)  gunChance = 0.72;
     if (GAME.level >= 10) gunChance = 0.78;
     const isGun = Math.random() < gunChance;
+    // Sine-wave variant only applies to non-gun UFOs, from round 3 onward.
+    let isSine = false;
+    if (!isGun && GAME.level >= 3) isSine = Math.random() < getSineChance(GAME.level);
     const el = document.createElement('div');
-    el.className = 'ufo' + (isGun ? ' gun' : '');
+    el.className = 'ufo' + (isGun ? ' gun' : isSine ? ' sine' : '');
     if (isGun) {
       const uid = Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
       el.innerHTML = `
@@ -2452,27 +2490,30 @@
         </svg>
       `;
     } else {
-    el.innerHTML = `
-      <svg viewBox="0 0 100 60" aria-hidden="true">
-        <defs>
-          <radialGradient id="domeG" cx="50%" cy="35%" r="60%">
-            <stop offset="0%" stop-color="#c9f7ff"/>
-            <stop offset="100%" stop-color="#2a6a8a"/>
-          </radialGradient>
-          <linearGradient id="bodyG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#a7b0c8"/>
-            <stop offset="100%" stop-color="#3b4460"/>
-          </linearGradient>
-        </defs>
-        <ellipse cx="50" cy="40" rx="44" ry="10" fill="url(#bodyG)"/>
-        <ellipse cx="50" cy="38" rx="44" ry="4" fill="#1a1f33" opacity="0.5"/>
-        <path d="M22 36 Q50 8 78 36 Z" fill="url(#domeG)"/>
-        <circle cx="44" cy="28" r="2.5" fill="#fff" opacity="0.9"/>
-        <circle cx="18" cy="44" r="2.5" fill="#ff5a6e"><animate attributeName="opacity" values="1;0.2;1" dur="0.6s" repeatCount="indefinite"/></circle>
-        <circle cx="50" cy="48" r="2.5" fill="#ffd76a"><animate attributeName="opacity" values="1;0.2;1" dur="0.5s" repeatCount="indefinite"/></circle>
-        <circle cx="82" cy="44" r="2.5" fill="#7be0c1"><animate attributeName="opacity" values="1;0.2;1" dur="0.7s" repeatCount="indefinite"/></circle>
-      </svg>
-    `;
+      const uid = Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+      const domeInner = isSine ? '#e8d2ff' : '#c9f7ff';
+      const domeOuter = isSine ? '#4a1a7a' : '#2a6a8a';
+      el.innerHTML = `
+        <svg viewBox="0 0 100 60" aria-hidden="true">
+          <defs>
+            <radialGradient id="domeG_${uid}" cx="50%" cy="35%" r="60%">
+              <stop offset="0%" stop-color="${domeInner}"/>
+              <stop offset="100%" stop-color="${domeOuter}"/>
+            </radialGradient>
+            <linearGradient id="bodyG_${uid}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#a7b0c8"/>
+              <stop offset="100%" stop-color="#3b4460"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="50" cy="40" rx="44" ry="10" fill="url(#bodyG_${uid})"/>
+          <ellipse cx="50" cy="38" rx="44" ry="4" fill="#1a1f33" opacity="0.5"/>
+          <path d="M22 36 Q50 8 78 36 Z" fill="url(#domeG_${uid})"/>
+          <circle cx="44" cy="28" r="2.5" fill="#fff" opacity="0.9"/>
+          <circle cx="18" cy="44" r="2.5" fill="#ff5a6e"><animate attributeName="opacity" values="1;0.2;1" dur="0.6s" repeatCount="indefinite"/></circle>
+          <circle cx="50" cy="48" r="2.5" fill="#ffd76a"><animate attributeName="opacity" values="1;0.2;1" dur="0.5s" repeatCount="indefinite"/></circle>
+          <circle cx="82" cy="44" r="2.5" fill="#7be0c1"><animate attributeName="opacity" values="1;0.2;1" dur="0.7s" repeatCount="indefinite"/></circle>
+        </svg>
+      `;
     }
     const w = (isGun ? 110 : 70) + Math.random() * (isGun ? 40 : 40);
     const h = w * (isGun ? 0.64 : 0.6);
@@ -2487,13 +2528,17 @@
     const mult = (window.LEVEL_SPEED && window.LEVEL_SPEED[GAME.level - 1]) || 1;
     ufos.push({
       el, x, y, w, h,
-      vy: (1.2 + Math.random() * 1.8) * mult * (isGun ? 0.85 : 1),
+      baseX: x,
+      vy: isSine
+        ? (1.5 + Math.random() * 1.5) * mult
+        : (1.2 + Math.random() * 1.8) * mult * (isGun ? 0.85 : 1),
       vx: 0,
-      sway: 0,
-      swayAmp: 0,
+      sway:    isSine ? Math.random() * 6.28 : 0,
+      swayAmp: isSine ? 120 + Math.random() * 80 : 0,
       hp: isGun ? 3 : 2, maxHp: isGun ? 3 : 2,
       isGun,
-      lastShot: performance.now() - 400 + Math.random() * 300, // first shot delay (shoots very soon)
+      isSine,
+      lastShot: performance.now() + 800 + Math.random() * 400,
     });
   }
 
@@ -2690,7 +2735,7 @@
 
   // Shared kill-reward path. Caller handles burst + DOM removal + splice.
   function registerUFOKill(u, kx, ky) {
-    const base = u.isGun ? 4 : 1;
+    const base = u.isGun ? 4 : u.isSine ? 3 : 1;
     const mult = comboActive ? COMBO_MULT : 1;
     GAME.score += base * mult;
     if (scoreEl) {
@@ -2781,7 +2826,12 @@
     for (let i = ufos.length - 1; i >= 0; i--) {
       const u = ufos[i];
       u.sway += 0.04 * wStep;
-      u.x += (u.vx + Math.sin(u.sway) * u.swayAmp) * wStep;
+      if (u.isSine) {
+        // Orbit baseX with a fat sine wave — amplitude set at spawn.
+        u.x = u.baseX + Math.sin(u.sway) * u.swayAmp;
+      } else {
+        u.x += (u.vx + Math.sin(u.sway) * u.swayAmp) * wStep;
+      }
       u.y += u.vy * wStep;
       u.el.style.left = u.x + 'px';
       u.el.style.top  = u.y + 'px';
@@ -2810,7 +2860,7 @@
 
       // Gun UFOs: shoot at player periodically
       if (u.isGun && !GAME.over) {
-        const interval = Math.max(750, 1700 - (GAME.level * 90));
+        const interval = Math.max(950, 2100 - (GAME.level * 90));
         if (now - u.lastShot > interval && u.y > -20 && u.y < window.innerHeight * 0.8) {
           u.lastShot = now;
           spawnEnemyBolt(u.x + u.w / 2, u.y + u.h * 0.95);
@@ -3047,7 +3097,7 @@
         coinStreak++;
         if (coinStreak >= COIN_STREAK_THRESHOLD) {
           GAME.score += COIN_STREAK_BONUS;
-          showBonusBanner('+' + COIN_STREAK_BONUS + ' სერია!');
+          showBonusBanner('+' + COIN_STREAK_BONUS + ' ქულა');
           coinStreak = 0;
         }
         updateStreakHud();
@@ -3257,24 +3307,24 @@
   };
 
   const powerups = [];
-  let nextSpawn = performance.now() + 12000 + Math.random() * 10000;
+  let nextSpawn = performance.now() + 8000 + Math.random() * 6000;
 
   function shouldSpawn() {
     if (!window.GAME || window.GAME.over) return false;
-    if (window.GAME.level < 4) return false; // only after round 4
+    if (window.GAME.level < 2) return false;
     return true;
   }
 
-  // Weighted pick. Heal only joins the pool when the player can actually use it.
   function pickKind() {
-    const pool = [
-      ['shield', 22],
-      ['double', 22],
-      ['magnet', 18],
-      ['slow',   16],
-      ['bomb',   12],
-    ];
-    if (window.GAME && window.GAME.hp < window.GAME.maxHp) pool.push(['heal', 10]);
+    const lvl = (window.GAME && window.GAME.level) || 1;
+    const pool = [];
+    if (lvl >= 2) pool.push(['double', 25]);
+    if (lvl >= 2) pool.push(['magnet', 20]);
+    if (lvl >= 4) pool.push(['shield', 25]);
+    if (lvl >= 5) pool.push(['bomb',   12]);
+    if (lvl >= 7) pool.push(['slow',   10]);
+    if (lvl >= 6 && window.GAME && window.GAME.hp < window.GAME.maxHp)
+      pool.push(['heal', 8]);
     const total = pool.reduce((s, p) => s + p[1], 0);
     let r = Math.random() * total;
     for (const [kind, w] of pool) {
@@ -3399,6 +3449,7 @@
 
   function spawnPowerup() {
     const kind = pickKind();
+    if (!kind) return;
     const el = document.createElement('div');
     el.className = 'powerup ' + kind;
     el.innerHTML = svgFor(kind);
