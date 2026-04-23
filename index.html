@@ -498,6 +498,50 @@
     background: radial-gradient(ellipse at center, rgba(30,0,0,0.55), rgba(0,0,0,0.0) 70%);
   }
   .game-over.show { opacity: 1; }
+  /* Victory overlay needs to accept clicks on its buttons. */
+  #victoryScreen.show { pointer-events: auto; }
+
+  /* Victory action buttons — continue / restart */
+  .victory-actions {
+    margin-top: clamp(24px, 4vw, 48px);
+    display: flex;
+    gap: clamp(12px, 2vw, 24px);
+    flex-wrap: wrap;
+    justify-content: center;
+    pointer-events: auto;
+  }
+  .victory-btn {
+    padding: 14px 28px;
+    border-radius: 14px;
+    border: 2px solid rgba(255,255,255,0.35);
+    font: 800 clamp(16px, 1.8vw, 22px)/1 "Noto Sans Georgian", "Sylfaen", sans-serif;
+    letter-spacing: 0.06em;
+    color: #fff;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: transform 0.1s ease, filter 0.15s ease, box-shadow 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    pointer-events: auto;
+  }
+  .victory-btn.continue {
+    background: linear-gradient(135deg, rgba(80,220,140,0.85), rgba(40,140,90,0.9));
+    border-color: rgba(150, 255, 180, 0.7);
+    box-shadow: 0 0 18px rgba(80,220,140,0.55), 0 6px 16px rgba(0,0,0,0.35);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+  .victory-btn.restart {
+    background: linear-gradient(135deg, rgba(255,170,90,0.85), rgba(200,60,70,0.9));
+    border-color: rgba(255, 200, 150, 0.7);
+    box-shadow: 0 0 18px rgba(255,130,80,0.55), 0 6px 16px rgba(0,0,0,0.35);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+  .victory-btn:hover { filter: brightness(1.15); transform: translateY(-2px); }
+  .victory-btn:active { transform: translateY(1px) scale(0.97); }
+  @media (pointer: coarse) and (max-width: 520px) {
+    .victory-btn { padding: 12px 20px; }
+  }
   .go-text {
     font: 800 clamp(40px, 7.5vw, 104px)/1.05 "Noto Sans Georgian", "BPG Nino Mtavruli", "Sylfaen", "Helvetica Neue", Helvetica, Arial, sans-serif;
     letter-spacing: 0.03em;
@@ -1638,6 +1682,10 @@
       <div class="go-text" style="color:#ffd76a; text-shadow: 0 0 22px rgba(255,215,106,0.9), 0 0 50px rgba(255,160,60,0.7), 0 4px 0 #8b4b00;">ყოჩაღ!</div>
       <div class="go-sub" id="victorySub">შენ გადაარჩინე გალაქტიკა</div>
       <div class="go-sub" id="victoryScore" style="margin-top: 20px; font-size: clamp(18px, 2vw, 26px);"></div>
+      <div class="victory-actions" id="victoryActions">
+        <button class="victory-btn continue" id="victoryContinueBtn" type="button">გაგრძელება</button>
+        <button class="victory-btn restart" id="victoryRestartBtn" type="button">თავიდან დაწყება</button>
+      </div>
     </div>
 
     <!-- Keyboard hint -->
@@ -2307,6 +2355,167 @@
       m.start(t + 0.25); m.stop(t + 0.95);
     }
 
+    // Dramatic boss entrance — ominous descending drone with pulses
+    function bossEntrance() {
+      const a = ac(); if (!a || !unlocked) return;
+      const t = a.currentTime;
+
+      const master = a.createGain();
+      master.gain.value = 0.7;
+      master.connect(a.destination);
+
+      // Deep sub bass — long descending note
+      const bass = a.createOscillator();
+      const bg = a.createGain();
+      bass.type = 'sawtooth';
+      bass.frequency.setValueAtTime(80, t);
+      bass.frequency.exponentialRampToValueAtTime(35, t + 3.2);
+      bg.gain.setValueAtTime(0.0001, t);
+      bg.gain.exponentialRampToValueAtTime(0.55, t + 0.2);
+      bg.gain.setValueAtTime(0.55, t + 2.8);
+      bg.gain.exponentialRampToValueAtTime(0.0001, t + 3.4);
+      const lp = a.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 350;
+      bass.connect(lp); lp.connect(bg); bg.connect(master);
+      bass.start(t); bass.stop(t + 3.5);
+
+      // Dissonant high drone (fear factor)
+      const hi = a.createOscillator();
+      const hg = a.createGain();
+      hi.type = 'sawtooth';
+      hi.frequency.setValueAtTime(220, t + 0.3);
+      hi.frequency.linearRampToValueAtTime(180, t + 3.2);
+      hg.gain.setValueAtTime(0.0001, t + 0.3);
+      hg.gain.exponentialRampToValueAtTime(0.08, t + 0.6);
+      hg.gain.exponentialRampToValueAtTime(0.0001, t + 3.3);
+      const bp = a.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 900;
+      bp.Q.value = 2.2;
+      hi.connect(bp); bp.connect(hg); hg.connect(master);
+      hi.start(t + 0.3); hi.stop(t + 3.4);
+
+      // 3 ominous pulses — "dun... dun... DUN!"
+      [0.5, 1.4, 2.3].forEach((dt, i) => {
+        const p = a.createOscillator();
+        const pg = a.createGain();
+        p.type = 'triangle';
+        const freq = 55 * (i + 1);
+        p.frequency.setValueAtTime(freq, t + dt);
+        p.frequency.exponentialRampToValueAtTime(freq * 0.6, t + dt + 0.3);
+        const amp = 0.4 + i * 0.15;
+        pg.gain.setValueAtTime(0.0001, t + dt);
+        pg.gain.exponentialRampToValueAtTime(amp, t + dt + 0.02);
+        pg.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.35);
+        p.connect(pg); pg.connect(master);
+        p.start(t + dt); p.stop(t + dt + 0.4);
+      });
+
+      // Final boom crescendo at 3.0s
+      const boom = a.createBuffer(1, Math.floor(a.sampleRate * 0.6), a.sampleRate);
+      const bd = boom.getChannelData(0);
+      for (let i = 0; i < bd.length; i++) {
+        const env = Math.pow(1 - i / bd.length, 1.4);
+        bd[i] = (Math.random() * 2 - 1) * env;
+      }
+      const bs = a.createBufferSource(); bs.buffer = boom;
+      const boomLP = a.createBiquadFilter();
+      boomLP.type = 'lowpass';
+      boomLP.frequency.setValueAtTime(1600, t + 3.0);
+      boomLP.frequency.exponentialRampToValueAtTime(150, t + 3.5);
+      const boomG = a.createGain();
+      boomG.gain.setValueAtTime(0.0001, t + 3.0);
+      boomG.gain.exponentialRampToValueAtTime(0.8, t + 3.01);
+      boomG.gain.exponentialRampToValueAtTime(0.0001, t + 3.5);
+      bs.connect(boomLP); boomLP.connect(boomG); boomG.connect(master);
+      bs.start(t + 3.0); bs.stop(t + 3.55);
+    }
+
+    // Triumphant victory fanfare — major chord arpeggio + brass sweep
+    function victoryFanfare() {
+      const a = ac(); if (!a || !unlocked) return;
+      const t = a.currentTime;
+
+      const master = a.createGain();
+      master.gain.value = 0.55;
+      master.connect(a.destination);
+
+      // C major arpeggio: C-E-G-C (up), held chord, then C octave
+      const notes = [
+        { f: 261.63, dt: 0.0 },   // C4
+        { f: 329.63, dt: 0.12 },  // E4
+        { f: 392.00, dt: 0.24 },  // G4
+        { f: 523.25, dt: 0.36 },  // C5
+        { f: 659.25, dt: 0.48 },  // E5
+        { f: 783.99, dt: 0.60 },  // G5
+        { f: 1046.5, dt: 0.72 },  // C6
+      ];
+      notes.forEach(({ f, dt }) => {
+        ['triangle', 'sine'].forEach((type, i) => {
+          const o = a.createOscillator();
+          const g = a.createGain();
+          o.type = type;
+          o.frequency.setValueAtTime(f, t + dt);
+          g.gain.setValueAtTime(0.0001, t + dt);
+          g.gain.exponentialRampToValueAtTime(i === 0 ? 0.45 : 0.22, t + dt + 0.03);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.8);
+          o.connect(g); g.connect(master);
+          o.start(t + dt); o.stop(t + dt + 0.82);
+        });
+      });
+
+      // Held major chord tail after arpeggio (C-E-G)
+      [523.25, 659.25, 783.99].forEach(f => {
+        const o = a.createOscillator();
+        const g = a.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(f, t + 0.9);
+        g.gain.setValueAtTime(0.0001, t + 0.9);
+        g.gain.exponentialRampToValueAtTime(0.32, t + 1.0);
+        g.gain.setValueAtTime(0.32, t + 2.6);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 3.4);
+        o.connect(g); g.connect(master);
+        o.start(t + 0.9); o.stop(t + 3.5);
+      });
+
+      // Timpani-like bass roll at start
+      const roll = a.createBuffer(1, Math.floor(a.sampleRate * 0.8), a.sampleRate);
+      const rd = roll.getChannelData(0);
+      for (let i = 0; i < rd.length; i++) {
+        const env = Math.pow(i / rd.length, 0.4) * Math.pow(1 - i / rd.length, 0.4);
+        rd[i] = (Math.random() * 2 - 1) * env;
+      }
+      const rs = a.createBufferSource(); rs.buffer = roll;
+      const rollLP = a.createBiquadFilter();
+      rollLP.type = 'lowpass';
+      rollLP.frequency.value = 220;
+      const rg = a.createGain();
+      rg.gain.setValueAtTime(0.0001, t);
+      rg.gain.exponentialRampToValueAtTime(0.7, t + 0.05);
+      rg.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+      rs.connect(rollLP); rollLP.connect(rg); rg.connect(master);
+      rs.start(t); rs.stop(t + 0.85);
+
+      // Final cymbal crash at end
+      const cym = a.createBuffer(1, Math.floor(a.sampleRate * 1.2), a.sampleRate);
+      const cd = cym.getChannelData(0);
+      for (let i = 0; i < cd.length; i++) {
+        const env = Math.pow(1 - i / cd.length, 1.2);
+        cd[i] = (Math.random() * 2 - 1) * env;
+      }
+      const cs = a.createBufferSource(); cs.buffer = cym;
+      const cymHP = a.createBiquadFilter();
+      cymHP.type = 'highpass';
+      cymHP.frequency.value = 3000;
+      const cg = a.createGain();
+      cg.gain.setValueAtTime(0.0001, t + 0.82);
+      cg.gain.exponentialRampToValueAtTime(0.35, t + 0.84);
+      cg.gain.exponentialRampToValueAtTime(0.0001, t + 2.0);
+      cs.connect(cymHP); cymHP.connect(cg); cg.connect(master);
+      cs.start(t + 0.82); cs.stop(t + 2.05);
+    }
+
     // Standard explosion — punch + crackle + sub + debris tail.
     function bigKill() {
       const a = ac(); if (!a || !unlocked) return;
@@ -2517,7 +2726,7 @@
       s.connect(bp); bp.connect(g); g.connect(a.destination);
       s.start(t); s.stop(t + 0.22);
     }
-    return { laser, explosion, bigKill, megaExplosion, enemyShot, hit, thrust, levelUp, coin, shieldPick, doubleShotPick, unlock };
+    return { laser, explosion, bigKill, megaExplosion, enemyShot, hit, thrust, levelUp, coin, shieldPick, doubleShotPick, unlock, bossEntrance, victoryFanfare };
   })();
   window.SFX = SFX;
 
@@ -2821,15 +3030,17 @@
         <circle cx="100" cy="125" r="3.5" fill="#ff5a6e"/>
         <circle cx="137" cy="116" r="3"   fill="#ff5a6e"/>
       </svg>`;
+    try { SFX.bossEntrance && SFX.bossEntrance(); } catch(_) {}
     ufoHost.appendChild(el);
     boss = {
       el, x, y, w, h,
-      hp: 25, maxHp: 25,
+      hp: 40, maxHp: 40,
       targetY: 80,
       phase: 0,
-      lastShot: performance.now() + 1500,
+      lastShot: performance.now() + 3500, // 3.5s grace after entry begins
       lastPattern: performance.now(),
       vx: 2.5,
+      entryTime: performance.now(),
     };
     const bar = document.createElement('div');
     bar.id = 'bossBar';
@@ -2938,10 +3149,102 @@
     const scoreLine = document.getElementById('victoryScore');
     if (scoreLine) scoreLine.textContent = 'ქულა: ' + GAME.score;
     if (scr) scr.classList.add('show');
-    setTimeout(() => {
-      if (scr) scr.classList.remove('show');
-      inEndless = true;
-    }, 5000);
+    try { SFX.victoryFanfare && SFX.victoryFanfare(); } catch(_) {}
+    launchFireworks(6000);
+    // Pause gameplay while the player celebrates; dismissed by button click.
+    GAME.over = true;
+    // Clear any lingering enemies/hazards for a clean backdrop.
+    bolts.forEach(b => b.el.remove());      bolts.length = 0;
+    ufos.forEach(u => u.el.remove());       ufos.length = 0;
+    enemyBolts.forEach(b => b.el.remove()); enemyBolts.length = 0;
+    rocks.forEach(r => r.el.remove());      rocks.length = 0;
+    comets.forEach(c => c.el.remove());     comets.length = 0;
+    cometWarnings.forEach(w => w.el.remove()); cometWarnings.length = 0;
+  }
+
+  function hideVictoryScreen() {
+    const scr = document.getElementById('victoryScreen');
+    if (scr) scr.classList.remove('show');
+  }
+
+  function continueToEndless() {
+    hideVictoryScreen();
+    inEndless = true;
+    // Keep score and level, unpause, resume spawning.
+    GAME.over = false;
+    nextSpawn = performance.now() + 1200;
+    nextRock  = performance.now() + 3000;
+    nextComet = performance.now() + 12000;
+  }
+
+  function restartFromVictory() {
+    hideVictoryScreen();
+    // Full reset from round 1. inEndless stays driven by localStorage.
+    reset();
+  }
+
+  // Wire the victory buttons once on load.
+  (function wireVictoryButtons() {
+    const contBtn = document.getElementById('victoryContinueBtn');
+    const restBtn = document.getElementById('victoryRestartBtn');
+    if (contBtn) contBtn.addEventListener('click', continueToEndless);
+    if (restBtn) restBtn.addEventListener('click', restartFromVictory);
+  })();
+
+  // Galaxy-style fireworks — colorful bursts across the screen
+  function launchFireworks(durationMs) {
+    const colors = [
+      ['#ffd76a', '#ff9a3a'],
+      ['#ff5a8a', '#c04aff'],
+      ['#7be0ff', '#4faaff'],
+      ['#a8ff7b', '#4af0a0'],
+      ['#ffffff', '#ffd76a'],
+    ];
+    let elapsed = 0;
+    const interval = 280;
+    const timer = setInterval(() => {
+      const fx = document.getElementById('fx');
+      if (!fx) { clearInterval(timer); return; }
+      const cx = 60 + Math.random() * (window.innerWidth - 120);
+      const cy = 80 + Math.random() * (window.innerHeight * 0.55);
+      const pair = colors[Math.floor(Math.random() * colors.length)];
+      const count = 22 + Math.floor(Math.random() * 10);
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('span');
+        p.className = 'particle ' + (Math.random() < 0.5 ? 'warm' : 'cool');
+        Object.assign(p.style, {
+          left: cx + 'px',
+          top: cy + 'px',
+          width: (4 + Math.random() * 3) + 'px',
+          height: (4 + Math.random() * 3) + 'px',
+          background: pair[0],
+          boxShadow: `0 0 10px ${pair[0]}, 0 0 22px ${pair[1]}`,
+          zIndex: 16,
+        });
+        fx.appendChild(p);
+        const ang = (i / count) * Math.PI * 2 + Math.random() * 0.3;
+        const spd = 3 + Math.random() * 6;
+        const life = 900 + Math.random() * 700;
+        const start = performance.now();
+        const gravity = 0.08;
+        let vx0 = Math.cos(ang) * spd;
+        let vy0 = Math.sin(ang) * spd;
+        function step() {
+          const t = performance.now() - start;
+          const k = Math.min(1, t / life);
+          vy0 += gravity;
+          const x = cx + vx0 * (t / 16);
+          const y = cy + vy0 * (t / 16);
+          p.style.transform = `translate(${x - cx}px, ${y - cy}px)`;
+          p.style.opacity = String(1 - k);
+          if (k < 1) requestAnimationFrame(step);
+          else p.remove();
+        }
+        requestAnimationFrame(step);
+      }
+      elapsed += interval;
+      if (elapsed >= durationMs) clearInterval(timer);
+    }, interval);
   }
 
   // ---- Enemy bolts (red, from gun UFOs) ----
