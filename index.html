@@ -804,31 +804,26 @@
     text-shadow: 0 0 8px rgba(80,180,255,0.9);
   }
 
-  /* Left-edge HUD columns. The round indicator stays at top:18. Below it,
-     a wide gap, then the powerup countdown sits centered in the empty
-     space, and the score-multiplier boxes sit near the bottom of the gap.
-     clamp() keeps the numbers sane on short and tall viewports. */
-  .hud-stack-left {
+  /* Left-edge HUD: one wrapper anchored below the round indicator. Inside
+     it, the powerup group sits on top and the multiplier group below, with
+     the same gap between round↔powerups and powerups↔multipliers. */
+  .hud-left-wrap {
     position: absolute;
-    top: clamp(140px, 28vh, 260px);  /* middle of the round→multiplier gap */
+    top: 68px;    /* round indicator ends ~52; 16px gap below it */
     left: 22px;
     z-index: 6;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 16px;    /* matches the round↔powerup gap */
     pointer-events: none;
   }
+  .hud-stack-left,
   .hud-stack-mult {
-    position: absolute;
-    top: clamp(300px, 60vh, 560px);  /* clearly lower on the screen */
-    left: 22px;
-    z-index: 6;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
-    pointer-events: none;
+    gap: 6px;     /* intra-group spacing between stacked badges */
   }
 
   /* Active double-shot badge (now part of the left-hand stack) */
@@ -1478,9 +1473,10 @@
          countdown lives in the unified left-hand HUD stack below). -->
     <div class="shield-halo" id="shieldHalo" style="display:none"></div>
 
-    <!-- Unified top-left HUD stack: timed powerups + combo/streak.
-         Sits below the Round indicator and each child is display:none by
-         default, flexing in when its .on class is set. -->
+    <!-- Unified top-left HUD: powerup group + multiplier group share one
+         wrapper so the gaps above/between them are equal. Each child is
+         display:none by default and flexes in when its .on class is set. -->
+    <div class="hud-left-wrap">
     <div class="hud-stack-left">
       <!-- Shield -->
       <div class="pu-badge shield" id="shieldBadge" aria-live="polite">
@@ -1537,6 +1533,7 @@
         <span id="streakCount">0/5</span>
       </div>
     </div>
+    </div><!-- /.hud-left-wrap -->
 
     <!-- Bonus banner (combo/streak rewards) -->
     <div id="bonusBanner" class="bonus-banner" aria-hidden="true"></div>
