@@ -58,6 +58,15 @@
     --star-near:     4.0s;
     --star-mid:      8.0s;
     --star-far:     16.0s;
+
+    /* Left HUD spacing — tuned per breakpoint below */
+    --hud-left: 22px;
+    --hud-top: 18px;
+    --hud-level-h: 42px;   /* approx height of level-hud */
+    --hud-pu-h: 26px;      /* approx height of a .pu-badge */
+    --hud-combo-h: 26px;   /* approx height of .combo-hud */
+    --hud-gap: 14px;       /* gap between groups */
+    --hud-stack: 2px;      /* gap between items within a group */
   }
 
   * { box-sizing: border-box; }
@@ -806,16 +815,17 @@
 
   /* Left-edge HUD: one wrapper anchored below the round indicator. Inside
      it, the powerup group sits on top and the multiplier group below, with
-     the same gap between round↔powerups and powerups↔multipliers. */
+     the same gap between round↔powerups and powerups↔multipliers.
+     All offsets come from CSS vars so breakpoints below retune spacing. */
   .hud-left-wrap {
     position: absolute;
-    top: 68px;    /* round indicator ends ~52; 16px gap below it */
-    left: 22px;
+    top: calc(var(--hud-top) + var(--hud-level-h) + var(--hud-gap));
+    left: var(--hud-left);
     z-index: 6;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;    /* matches the round↔powerup gap */
+    gap: var(--hud-gap);    /* between powerup group and multiplier group */
     pointer-events: none;
   }
   .hud-stack-left,
@@ -823,7 +833,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;     /* intra-group spacing between stacked badges */
+    gap: var(--hud-stack);  /* intra-group spacing between stacked badges */
   }
 
   /* Active double-shot badge (now part of the left-hand stack) */
@@ -1177,7 +1187,7 @@
   -----------------------------------------------------------------*/
   .level-hud {
     position: absolute;
-    top: 18px; left: 22px;
+    top: var(--hud-top); left: var(--hud-left);
     z-index: 6;
     padding: 8px 14px;
     border-radius: 10px;
@@ -1200,10 +1210,53 @@
     color: #a9ecff;
     text-shadow: 0 0 10px rgba(79,209,255,0.45);
   }
+
+  /* Responsive left-HUD overrides — purely :root variable tweaks so every
+     piece of the stack (round, powerups, multipliers) rescales together. */
+  /* Tablet landscape & smaller laptops — tighten slightly */
+  @media (max-width: 1024px) {
+    :root {
+      --hud-gap: 12px;
+    }
+  }
+  /* Tablet portrait */
+  @media (max-width: 820px) {
+    :root {
+      --hud-left: 18px;
+      --hud-top: 14px;
+      --hud-gap: 11px;
+      --hud-level-h: 38px;
+      --hud-pu-h: 24px;
+      --hud-combo-h: 24px;
+    }
+  }
+  /* Mobile */
   @media (pointer: coarse) and (max-width: 520px) {
-    .level-hud { top: calc(12px + env(safe-area-inset-top, 0px)); left: 14px; padding: 6px 10px; }
+    :root {
+      --hud-left: 14px;
+      --hud-top: calc(12px + env(safe-area-inset-top, 0px));
+      --hud-gap: 10px;
+      --hud-level-h: 34px;
+      --hud-pu-h: 22px;
+      --hud-combo-h: 22px;
+      --hud-stack: 2px;
+    }
+    .level-hud { padding: 6px 10px; }
     .level-hud #level { font-size: 14px; }
     .level-hud .level-label { font-size: 10px; }
+    .pu-badge, .combo-hud, .streak-hud {
+      padding: 5px 8px;
+      font-size: 11px;
+    }
+  }
+  /* Very small mobile (iPhone SE etc.) */
+  @media (pointer: coarse) and (max-width: 380px) {
+    :root {
+      --hud-gap: 8px;
+      --hud-level-h: 32px;
+      --hud-pu-h: 20px;
+      --hud-combo-h: 20px;
+    }
   }
 
   .round-banner {
