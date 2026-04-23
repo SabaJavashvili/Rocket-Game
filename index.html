@@ -2536,6 +2536,19 @@
     return { w, h: w * 2.2 };
   }
 
+  // Edge-buffer spawn zones — keep spawns inside the rocket's reachable
+  // horizontal area. The rocket-wrap has a 60px fly margin (see bounds()),
+  // so we use a slightly larger EDGE_BUFFER here to account for the
+  // half-width of the spawned sprite.
+  const EDGE_BUFFER = 70;
+  function spawnXRange(elementWidth) {
+    const halfW = elementWidth / 2;
+    const minX = EDGE_BUFFER - halfW;
+    const maxX = window.innerWidth - EDGE_BUFFER - halfW;
+    const range = Math.max(20, maxX - minX);
+    return { min: minX, range };
+  }
+
   // ---- Lasers ----
   const COOLDOWN   = 140;
   const BOLT_SPEED = 18;
@@ -2713,7 +2726,8 @@
     const h = w * (isGun ? 0.64 : 0.6);
     el.style.width  = w + 'px';
     el.style.height = h + 'px';
-    const x = 30 + Math.random() * (window.innerWidth - 60);
+    const { min: minUfoX, range: ufoRange } = spawnXRange(w);
+    const x = minUfoX + Math.random() * ufoRange;
     const y = -h;
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
@@ -2957,9 +2971,10 @@
   function hitRocketVsEnemyBolt(b) {
     const c = rocketCenter();
     const s = rocketSize();
+    const halfW = s.w * 0.42 + 4;
+    const halfH = s.h * 0.42 + 4;
     const dx = c.x - b.x, dy = c.y - b.y;
-    const rr = s.h * 0.28 + 6;
-    return dx*dx + dy*dy < rr*rr;
+    return (dx*dx) / (halfW*halfW) + (dy*dy) / (halfH*halfH) < 1;
   }
 
   // ---- Damaging asteroids (hazard rocks) ----
@@ -2974,7 +2989,8 @@
     const size = 52 + Math.random() * 40;
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
-    const x = 30 + Math.random() * (window.innerWidth - 60);
+    const { min: minRockX, range: rockRange } = spawnXRange(size);
+    const x = minRockX + Math.random() * rockRange;
     const y = -size;
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
@@ -3012,10 +3028,12 @@
   }
   function hitRocketVsRock(r) {
     const c = rocketCenter();
-    const rs = rocketSize();
-    const dx = Math.abs((r.x + r.w/2) - c.x);
-    const dy = Math.abs((r.y + r.h/2) - c.y);
-    return dx < (rs.w*0.5 + r.w*0.35) && dy < (rs.h*0.5 + r.h*0.35);
+    const s = rocketSize();
+    const rcx = r.x + r.w / 2, rcy = r.y + r.h / 2;
+    const halfW = s.w * 0.45 + r.w * 0.38;
+    const halfH = s.h * 0.45 + r.h * 0.38;
+    const dx = c.x - rcx, dy = c.y - rcy;
+    return (dx*dx) / (halfW*halfW) + (dy*dy) / (halfH*halfH) < 1;
   }
 
   // ---- Comets (telegraphed dodge hazards) ----
@@ -3081,12 +3099,14 @@
     }, 1100);
   }
 
-  function hitRocketVsComet(c) {
-    const rc = rocketCenter();
-    const rs = rocketSize();
-    const dx = Math.abs((c.x + c.w/2) - rc.x);
-    const dy = Math.abs((c.y + c.h/2) - rc.y);
-    return dx < (rs.w*0.5 + c.w*0.35) && dy < (rs.h*0.5 + c.h*0.5);
+  function hitRocketVsComet(c2) {
+    const c = rocketCenter();
+    const s = rocketSize();
+    const ccx = c2.x + c2.w / 2, ccy = c2.y + c2.h / 2;
+    const halfW = s.w * 0.45 + c2.w * 0.38;
+    const halfH = s.h * 0.45 + c2.h * 0.38;
+    const dx = c.x - ccx, dy = c.y - ccy;
+    return (dx*dx) / (halfW*halfW) + (dy*dy) / (halfH*halfH) < 1;
   }
 
   // ---- Effects: explosion burst ----
@@ -3175,10 +3195,10 @@
     const c = rocketCenter();
     const s = rocketSize();
     const ucx = u.x + u.w / 2, ucy = u.y + u.h / 2;
+    const halfW = s.w * 0.45 + u.w * 0.38;
+    const halfH = s.h * 0.45 + u.h * 0.38;
     const dx = c.x - ucx, dy = c.y - ucy;
-    // Rocket hitbox: a circle around its center, ~40% of height.
-    const rr = s.h * 0.32 + u.w * 0.35;
-    return dx*dx + dy*dy < rr*rr;
+    return (dx*dx) / (halfW*halfW) + (dy*dy) / (halfH*halfH) < 1;
   }
 
   // ---- Game-over ----
@@ -3573,7 +3593,8 @@
         <text x="12" y="16" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="11" font-weight="800" fill="#7a4a00">5</text>
       </svg>`;
     const size = 34;
-    const x = 30 + Math.random() * (window.innerWidth - 60);
+    const { min: minCoinX, range: coinRange } = spawnXRange(size);
+    const x = minCoinX + Math.random() * coinRange;
     const y = -size;
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
@@ -3590,11 +3611,10 @@
     const c = rocketCenter();
     const s = rocketSize();
     const pcx = p.x + p.w / 2, pcy = p.y + p.h / 2;
+    const halfW = s.w * 0.50 + p.w * 0.55;
+    const halfH = s.h * 0.50 + p.h * 0.55;
     const dx = c.x - pcx, dy = c.y - pcy;
-    // Ellipse matching the rocket silhouette so the nose picks up coins too.
-    const rx = s.w * 0.55 + p.w * 0.55;
-    const ry = s.h * 0.50 + p.w * 0.55;
-    return (dx*dx)/(rx*rx) + (dy*dy)/(ry*ry) < 1;
+    return (dx*dx) / (halfW*halfW) + (dy*dy) / (halfH*halfH) < 1;
   }
 
   // ---- Georgian kill quotes ----
@@ -4063,7 +4083,13 @@
     el.className = 'powerup ' + kind;
     el.innerHTML = svgFor(kind);
     const size = 46;
-    const x = 40 + Math.random() * (window.innerWidth - 80);
+    // Edge-buffer spawn zone — keep the powerup in the rocket's reach.
+    // Inlined here because combat-module's spawnXRange() isn't in scope.
+    const EDGE_BUFFER_PU = 70;
+    const halfPU = size / 2;
+    const minPUX = EDGE_BUFFER_PU - halfPU;
+    const maxPUX = window.innerWidth - EDGE_BUFFER_PU - halfPU;
+    const x = minPUX + Math.random() * Math.max(20, maxPUX - minPUX);
     const y = -size;
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
