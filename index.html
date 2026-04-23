@@ -1520,29 +1520,30 @@
         <div class="stick-knob" id="stickKnob"></div>
       </div>
       <button class="fire-btn" id="fireBtn" aria-label="სროლა">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
+        <svg viewBox="0 0 48 48" aria-hidden="true">
           <defs>
-            <linearGradient id="boltG" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stop-color="#ffffff"/>
-              <stop offset="35%"  stop-color="#a9ecff"/>
-              <stop offset="70%"  stop-color="#4fd1ff"/>
-              <stop offset="100%" stop-color="#7a4bff"/>
+            <linearGradient id="bulletTip" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="#fff2c4"/>
+              <stop offset="55%"  stop-color="#ff9a4a"/>
+              <stop offset="100%" stop-color="#b32a1a"/>
             </linearGradient>
-            <radialGradient id="boltHead" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#ffffff"/>
-              <stop offset="60%" stop-color="#a9ecff"/>
-              <stop offset="100%" stop-color="rgba(79,209,255,0)"/>
+            <radialGradient id="bulletTrail" cx="50%" cy="100%" r="60%">
+              <stop offset="0%"   stop-color="#ffe08a" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#ff5a3a" stop-opacity="0"/>
             </radialGradient>
           </defs>
-          <!-- Halo glow -->
-          <circle cx="12" cy="5" r="4.5" fill="url(#boltHead)" opacity="0.9"/>
-          <!-- Laser shaft -->
-          <rect x="10.5" y="3" width="3" height="18" rx="1.5"
-                fill="url(#boltG)"
-                stroke="#ffffff" stroke-width="0.3" stroke-opacity="0.5"/>
-          <!-- Bright core -->
-          <rect x="11.4" y="4" width="1.2" height="16" rx="0.6"
-                fill="#ffffff" opacity="0.9"/>
+          <!-- Trailing flame -->
+          <ellipse cx="24" cy="42" rx="6" ry="5" fill="url(#bulletTrail)"/>
+          <!-- Body (rounded, pointed top) -->
+          <path d="M18 34 L18 16 Q18 6 24 3 Q30 6 30 16 L30 34 Z"
+                fill="url(#bulletTip)"
+                stroke="#5a1208" stroke-width="1.2"/>
+          <!-- Casing rim lines -->
+          <rect x="18" y="22" width="12" height="2" fill="#5a1208" opacity="0.5"/>
+          <rect x="18" y="30" width="12" height="2" fill="#5a1208" opacity="0.5"/>
+          <!-- Body shine -->
+          <rect x="20" y="10" width="2" height="20" rx="1"
+                fill="#ffffff" opacity="0.55"/>
         </svg>
       </button>
     </div>
@@ -1674,9 +1675,16 @@
   let bank = 0;           // current bank angle (deg)
 
   // Expose live state + reset so other systems (lasers, UFOs, game) can read it.
+  // Setters allow 1:1 drag controllers to write position/velocity directly.
   window.ROCKET = {
     get x()    { return x; },
+    set x(v)   { x = v; },
     get y()    { return y; },
+    set y(v)   { y = v; },
+    get vx()   { return vx; },
+    set vx(v)  { vx = v; },
+    get vy()   { return vy; },
+    set vy(v)  { vy = v; },
     get bank() { return bank; },
     get alive(){ return !window.GAME || !window.GAME.over; },
     // Direct input hook for touch controls — set any of
@@ -1695,9 +1703,9 @@
   // Tuning — touch devices fly faster toward tap targets, but with gentler
   // acceleration so the trip still feels deliberate.
   const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
-  const ACCEL    = IS_TOUCH ? 1.1  : 0.9;   // px / frame^2
-  const MAX_V    = IS_TOUCH ? 22   : 14;    // max velocity (px / frame)
-  const DAMP     = IS_TOUCH ? 0.82 : 0.90;  // tighter damping on touch so finger-lift stops fast
+  const ACCEL    = IS_TOUCH ? 0.9  : 0.9;   // px / frame^2
+  const MAX_V    = IS_TOUCH ? 14   : 14;    // max velocity (px / frame)
+  const DAMP     = 0.88;
   const MAX_BANK = 18;    // deg
   const BANK_LERP= 0.12;  // how quickly bank catches up to target
 
@@ -2148,40 +2156,80 @@
       m.start(t + 0.25); m.stop(t + 0.95);
     }
 
-    // Standard explosion — classic punchy arcade boom.
+    // Standard explosion — punch + crackle + sub + debris tail.
     function bigKill() {
       const a = ac(); if (!a || !unlocked) return;
       const t = a.currentTime;
-      // Single punchy noise burst with lowpass sweep (classic arcade boom)
-      const dur = 0.6;
-      const buf = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) {
-        const env = Math.pow(1 - i / d.length, 1.8);
-        d[i] = (Math.random() * 2 - 1) * env;
-      }
-      const s = a.createBufferSource(); s.buffer = buf;
-      const lp = a.createBiquadFilter(); lp.type = 'lowpass';
-      lp.frequency.setValueAtTime(3200, t);
-      lp.frequency.exponentialRampToValueAtTime(220, t + dur);
-      const g = a.createGain();
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.7, t + 0.008);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      s.connect(lp); lp.connect(g); g.connect(a.destination);
-      s.start(t); s.stop(t + dur);
 
-      // Supporting low thump (sine sweep down)
+      const master = a.createGain();
+      master.gain.value = 0.95;
+      master.connect(a.destination);
+      const shaper = a.createWaveShaper();
+      const n = 512; const curve = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        const x = (i / n) * 2 - 1;
+        curve[i] = Math.tanh(x * 2.2);
+      }
+      shaper.curve = curve; shaper.oversample = '4x';
+      shaper.connect(master);
+
+      // 1. Sharp punch transient
+      const punch = a.createBuffer(1, Math.floor(a.sampleRate * 0.04), a.sampleRate);
+      const pd = punch.getChannelData(0);
+      for (let i = 0; i < pd.length; i++) {
+        const env = Math.pow(1 - i / pd.length, 2.2);
+        pd[i] = (Math.random() * 2 - 1) * env;
+      }
+      const ps = a.createBufferSource(); ps.buffer = punch;
+      const pg = a.createGain();
+      pg.gain.setValueAtTime(1.0, t);
+      pg.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+      ps.connect(pg); pg.connect(shaper);
+      ps.start(t); ps.stop(t + 0.05);
+
+      // 2. Mid-band crackle
+      const dur = 0.55;
+      const crack = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate);
+      const cd = crack.getChannelData(0);
+      for (let i = 0; i < cd.length; i++) {
+        const env = Math.pow(1 - i / cd.length, 1.5);
+        cd[i] = (Math.random() * 2 - 1) * env;
+      }
+      const cs = a.createBufferSource(); cs.buffer = crack;
+      const bp = a.createBiquadFilter(); bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(1600, t);
+      bp.frequency.exponentialRampToValueAtTime(350, t + dur);
+      bp.Q.value = 0.8;
+      const cg = a.createGain();
+      cg.gain.setValueAtTime(0.0001, t);
+      cg.gain.exponentialRampToValueAtTime(0.75, t + 0.01);
+      cg.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      cs.connect(bp); bp.connect(cg); cg.connect(shaper);
+      cs.start(t); cs.stop(t + dur);
+
+      // 3. Sub-bass thump
       const o = a.createOscillator();
       const og = a.createGain();
       o.type = 'sine';
-      o.frequency.setValueAtTime(150, t);
-      o.frequency.exponentialRampToValueAtTime(45, t + 0.3);
+      o.frequency.setValueAtTime(180, t);
+      o.frequency.exponentialRampToValueAtTime(38, t + 0.4);
       og.gain.setValueAtTime(0.0001, t);
-      og.gain.exponentialRampToValueAtTime(0.55, t + 0.012);
-      og.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-      o.connect(og); og.connect(a.destination);
-      o.start(t); o.stop(t + 0.4);
+      og.gain.exponentialRampToValueAtTime(0.85, t + 0.015);
+      og.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      o.connect(og); og.connect(master);
+      o.start(t); o.stop(t + 0.55);
+
+      // 4. Debris whoosh tail
+      const saw = a.createOscillator();
+      const sg = a.createGain();
+      saw.type = 'sawtooth';
+      saw.frequency.setValueAtTime(600, t + 0.02);
+      saw.frequency.exponentialRampToValueAtTime(120, t + 0.3);
+      sg.gain.setValueAtTime(0.0001, t + 0.02);
+      sg.gain.exponentialRampToValueAtTime(0.22, t + 0.05);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      saw.connect(sg); sg.connect(shaper);
+      saw.start(t + 0.02); saw.stop(t + 0.4);
     }
 
     // Shield pickup ping — bright ascending chime with shimmer
@@ -3152,14 +3200,13 @@
 })();
 
 /* ------------------------------------------------------------------
-   Mobile touch controls — TAP-TO-MOVE.
-   Touch anywhere on screen: the rocket flies to that point (fast).
-   Drag your finger: the rocket follows it continuously.
-   Fire button dispatches synthetic Space keydown/keyup so the existing
-   combat code handles it unchanged.
+   Mobile touch controls — 1:1 DRAG.
+   Finger movement translates directly into rocket movement: no joystick
+   origin to find, no lurching toward a tap point. Fire button dispatches
+   synthetic Space keydown/keyup so the existing combat code handles it.
 -------------------------------------------------------------------*/
 (function () {
-  const stick    = document.getElementById('stick');     // full-screen capture surface
+  const stick    = document.getElementById('stick');
   const fireBtn  = document.getElementById('fireBtn');
   const hint     = document.getElementById('hint');
   if (!stick || !fireBtn) return;
@@ -3168,72 +3215,62 @@
   if (!R) return;
 
   let pointerId = null;
+  let lastX = 0, lastY = 0;
+  const SENSITIVITY = 1.25; // tune: higher = faster rocket per finger move
 
-  // Convert a viewport (client) coord into rocket-offset space.
-  // The rocket's rest position is the viewport center, and ROCKET.x/ROCKET.y
-  // are offsets from there. We aim the rocket ~FINGER_OFFSET_Y px above the
-  // touch point so the finger doesn't block the player's view of the rocket.
-  const FINGER_OFFSET_Y = 90; // px — rocket appears above finger
-  function setTargetFromClient(clientX, clientY) {
-    const tx = clientX - window.innerWidth  / 2;
-    const ty = (clientY - FINGER_OFFSET_Y) - window.innerHeight / 2;
-    R.target = { x: tx, y: ty };
+  function applyDelta(clientX, clientY) {
+    const dx = (clientX - lastX) * SENSITIVITY;
+    const dy = (clientY - lastY) * SENSITIVITY;
+    lastX = clientX;
+    lastY = clientY;
+    const margin = 60;
+    const maxX = window.innerWidth  / 2 - margin;
+    const maxY = window.innerHeight / 2 - margin;
+    R.x = Math.max(-maxX, Math.min(maxX, (R.x || 0) + dx));
+    R.y = Math.max(-maxY, Math.min(maxY, (R.y || 0) + dy));
+    if (R.vx !== undefined) R.vx = 0;
+    if (R.vy !== undefined) R.vy = 0;
   }
 
   function onDown(e) {
     if (pointerId !== null) return;
     pointerId = e.pointerId;
     try { stick.setPointerCapture(pointerId); } catch (_) {}
+    lastX = e.clientX;
+    lastY = e.clientY;
+    R.target = null;
     if (hint) hint.classList.add('fade');
-    setTargetFromClient(e.clientX, e.clientY);
     e.preventDefault();
   }
   function onMove(e) {
     if (e.pointerId !== pointerId) return;
-    setTargetFromClient(e.clientX, e.clientY);
+    applyDelta(e.clientX, e.clientY);
     e.preventDefault();
   }
   function onUp(e) {
     if (e.pointerId !== pointerId) return;
     try { stick.releasePointerCapture(pointerId); } catch (_) {}
     pointerId = null;
-    // Drop the target — rocket damps to a stop at its current position.
-    R.target = null;
   }
-
-  // Ultra-safety: if all document touches go away, release.
-  function releaseIfAllTouchesGone() {
-    if (pointerId === null) return;
-    pointerId = null;
-    R.target = null;
-  }
-  document.addEventListener('touchend', (e) => {
-    if (e.touches.length === 0) releaseIfAllTouchesGone();
-  }, true);
-  document.addEventListener('touchcancel', (e) => {
-    if (e.touches.length === 0) releaseIfAllTouchesGone();
-  }, true);
 
   stick.addEventListener('pointerdown',   onDown);
   stick.addEventListener('pointermove',   onMove);
   stick.addEventListener('pointerup',     onUp);
   stick.addEventListener('pointercancel', onUp);
   stick.addEventListener('lostpointercapture', (e) => {
-    if (e.pointerId === pointerId) { pointerId = null; R.target = null; }
+    if (e.pointerId === pointerId) pointerId = null;
   });
-  // Global watchdogs — catch releases the stick missed due to gesture arbitration.
   window.addEventListener('pointerup',     onUp, true);
   window.addEventListener('pointercancel', onUp, true);
   window.addEventListener('pointermove',   (e) => {
     if (pointerId !== null && e.pointerId === pointerId) {
-      setTargetFromClient(e.clientX, e.clientY);
+      applyDelta(e.clientX, e.clientY);
     }
   }, true);
 
-  // --- Fire button: dispatch synthetic Space events ---
+  // Fire button — synthetic Space events
   function fireDown(ev) {
-    ev.preventDefault();
-    ev.stopPropagation();
+    ev.preventDefault(); ev.stopPropagation();
     fireBtn.classList.add('pressed');
     window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }));
   }
@@ -3247,18 +3284,15 @@
   fireBtn.addEventListener('pointercancel', fireUp);
   fireBtn.addEventListener('pointerleave',  () => fireBtn.classList.contains('pressed') && fireUp());
 
-  // Safety: release everything on visibility change / blur
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { R.target = null; fireUp(); pointerId = null; }
+    if (document.hidden) { fireUp(); pointerId = null; }
   });
-  window.addEventListener('blur', () => { R.target = null; fireUp(); pointerId = null; });
+  window.addEventListener('blur', () => { fireUp(); pointerId = null; });
 
-  // Block multi-touch gestures (pinch/zoom, double-tap zoom) on the game surface
   document.addEventListener('gesturestart',  (e) => e.preventDefault());
   document.addEventListener('touchstart',    (e) => {
     if (!e.target.closest('.stick, .fire-btn')) e.preventDefault();
   }, { passive: false });
-  document.addEventListener('touchmove',     (e) => e.preventDefault(), { passive: false });
 })();
 </script>
 <script>
