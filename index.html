@@ -2017,10 +2017,13 @@
   const enemyBoltsHost = document.getElementById('enemyBolts');
   const enemyBolts = [];
 
-  // Boss + endless-mode state
+  // Boss + endless-mode state. Each run starts normal so round 10 always
+  // triggers the boss fight. Endless is only entered via the victory-screen
+  // "Continue" button. The localStorage flag stays set on boss kill for
+  // any future UI use, but it does NOT auto-engage endless on page load.
   let bossSpawned = false;
   let bossDefeated = false;
-  let inEndless = !!localStorage.getItem('rocketgame_endless_unlocked');
+  let inEndless = false;
   function renderLife() {
     if (!lifeFillEl) return;
     const pct = Math.max(0, GAME.hp) / GAME.maxHp * 100;
@@ -3093,12 +3096,24 @@
       }
     }
 
+    // Detect shield-camping: rocket fully inside the boss AABB while shield
+    // is up. In that case bolts born from the rocket's nose spawn already
+    // inside the boss and would chain-hit it; we consume them without
+    // damage so shield can't be used to cheese the fight.
+    const rcPre = rocketCenter();
+    const rocketInsideBoss =
+      rcPre.x > boss.x && rcPre.x < boss.x + boss.w &&
+      rcPre.y > boss.y && rcPre.y < boss.y + boss.h;
+    const shieldCamping = rocketInsideBoss &&
+      window.POWERUP && window.POWERUP.shieldActive();
+
     // Boss vs player lasers (rectangle hitbox around the sprite).
     for (let j = bolts.length - 1; j >= 0; j--) {
       const b = bolts[j];
       if (b.x > boss.x && b.x < boss.x + boss.w &&
           b.y > boss.y && b.y < boss.y + boss.h) {
         bolts[j].el.remove(); bolts.splice(j, 1);
+        if (shieldCamping) continue; // silently absorb — no damage to boss
         boss.hp -= 1;
         boss.el.classList.add('flash');
         setTimeout(() => boss && boss.el.classList.remove('flash'), 80);
@@ -3110,16 +3125,12 @@
       }
     }
 
-    // Ram damage: if the rocket drifts into the boss body, take 1 HP.
-    if (!GAME.over) {
-      const rc = rocketCenter();
-      if (rc.x > boss.x && rc.x < boss.x + boss.w &&
-          rc.y > boss.y && rc.y < boss.y + boss.h) {
-        if (window.POWERUP && window.POWERUP.shieldActive()) {
-          if (window.__shieldFlash) window.__shieldFlash();
-        } else {
-          if (window.__damage) window.__damage(1);
-        }
+    // Ram contact: shield absorbs and flashes; otherwise the rocket takes 1 HP.
+    if (!GAME.over && rocketInsideBoss) {
+      if (shieldCamping) {
+        if (window.__shieldFlash) window.__shieldFlash();
+      } else {
+        if (window.__damage) window.__damage(1);
       }
     }
   }
