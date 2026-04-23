@@ -804,12 +804,25 @@
     text-shadow: 0 0 8px rgba(80,180,255,0.9);
   }
 
-  /* Active double-shot badge near HUD */
-  .ds-badge {
+  /* Unified top-left HUD stack: timed-powerup badges + combo/streak.
+     Sits below the Round indicator (level-hud is 18px top, ~34px tall).
+     Children are display:none by default and flex in when `.on`. */
+  .hud-stack-left {
     position: absolute;
-    right: 22px; top: 64px;
+    top: 62px;
+    left: 22px;
     z-index: 6;
-    padding: 6px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    pointer-events: none;
+  }
+
+  /* Active double-shot badge (now part of the left-hand stack) */
+  .ds-badge {
+    z-index: 6;
+    padding: 6px 10px 13px;
     border-radius: 10px;
     background: rgba(40, 10, 30, 0.55);
     border: 1px solid rgba(255, 160, 90, 0.4);
@@ -819,6 +832,7 @@
     display: none;
     align-items: center;
     gap: 6px;
+    position: relative;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
   }
@@ -827,27 +841,31 @@
   /* Shared countdown bar inside timed powerup badges */
   .pu-timebar {
     position: absolute;
-    left: 8px; right: 8px; bottom: 3px;
-    height: 3px;
-    background: rgba(255,255,255,0.15);
-    border-radius: 2px;
+    left: 6px; right: 6px; bottom: 3px;
+    height: 5px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
     overflow: hidden;
   }
   .pu-timebar-fill {
     position: absolute;
     left: 0; top: 0; bottom: 0;
     width: 100%;
-    background: currentColor;
     border-radius: 2px;
-    box-shadow: 0 0 4px currentColor;
     transition: width 0.1s linear;
   }
+  /* Per-kind bar colors so the fill contrasts strongly with the dark track */
+  .ds-badge .pu-timebar-fill       { background: linear-gradient(to right, #ffd76a, #ff8a3d); box-shadow: 0 0 6px #ff8a3d; }
+  .pu-badge.shield .pu-timebar-fill { background: linear-gradient(to right, #c6eeff, #4fa8ff); box-shadow: 0 0 6px #4fa8ff; }
+  .pu-badge.magnet .pu-timebar-fill { background: linear-gradient(to right, #ffb0d8, #ff5aa0); box-shadow: 0 0 6px #ff5aa0; }
+  .pu-badge.slow   .pu-timebar-fill { background: linear-gradient(to right, #d6ecff, #6ab8ff); box-shadow: 0 0 6px #6ab8ff; }
 
   /* Generic powerup badges (magnet, slow) stacked below the level HUD */
   .pu-badge {
-    position: absolute;
+    position: relative;
     z-index: 6;
-    padding: 6px 10px 10px;
+    padding: 6px 10px 13px;
     border-radius: 10px;
     background: rgba(10, 8, 30, 0.55);
     border: 1px solid rgba(180, 180, 255, 0.22);
@@ -861,14 +879,17 @@
     -webkit-backdrop-filter: blur(6px);
   }
   .pu-badge.on { display: inline-flex; }
+  .pu-badge.shield {
+    border-color: rgba(120, 200, 255, 0.55);
+    color: #d6f0ff;
+    box-shadow: 0 0 12px rgba(80, 170, 255, 0.4);
+  }
   .pu-badge.magnet {
-    left: 22px; top: 58px;
     border-color: rgba(255, 130, 200, 0.55);
     color: #ffd6ec;
     box-shadow: 0 0 12px rgba(255, 90, 170, 0.35);
   }
   .pu-badge.slow {
-    left: 22px; top: 90px;
     border-color: rgba(170, 220, 255, 0.55);
     color: #d6ecff;
     box-shadow: 0 0 12px rgba(120, 180, 240, 0.35);
@@ -876,8 +897,7 @@
 
   /* Combo + coin-streak counters */
   .combo-hud {
-    position: absolute;
-    left: 22px; top: 122px;
+    position: relative;
     z-index: 6;
     padding: 6px 10px;
     border-radius: 10px;
@@ -904,8 +924,7 @@
     to   { filter: brightness(1.3) drop-shadow(0 0 16px rgba(255,170,60,0.95)); }
   }
   .streak-hud {
-    position: absolute;
-    left: 22px; top: 154px;
+    position: relative;
     z-index: 6;
     padding: 6px 10px;
     border-radius: 10px;
@@ -1443,59 +1462,66 @@
     <!-- Power-ups layer -->
     <div class="powerups" id="powerups" aria-hidden="true"></div>
 
-    <!-- Shield halo + timer (positioned via JS to follow rocket) -->
+    <!-- Shield halo around the rocket (visual gameplay indicator only;
+         countdown lives in the unified left-hand HUD stack below). -->
     <div class="shield-halo" id="shieldHalo" style="display:none"></div>
-    <div class="shield-timer" id="shieldTimer" style="display:none">
-      <svg viewBox="0 0 64 64" aria-hidden="true">
-        <circle class="ring-bg" cx="32" cy="32" r="26"/>
-        <circle class="ring-fg" id="shieldRing" cx="32" cy="32" r="26"
-                stroke-dasharray="163.36" stroke-dashoffset="0"/>
-      </svg>
-      <div class="num" id="shieldNum">10</div>
-    </div>
 
-    <!-- Double-shot badge -->
-    <div class="ds-badge" id="dsBadge" aria-live="polite">
-      <span aria-hidden="true">⇅⇅</span>
-      <span id="dsTime">10</span>s
-      <div class="pu-timebar"><div class="pu-timebar-fill" id="dsBar"></div></div>
-    </div>
+    <!-- Unified top-left HUD stack: timed powerups + combo/streak.
+         Sits below the Round indicator and each child is display:none by
+         default, flexing in when its .on class is set. -->
+    <div class="hud-stack-left">
+      <!-- Shield -->
+      <div class="pu-badge shield" id="shieldBadge" aria-live="polite">
+        <span aria-hidden="true">🛡</span>
+        <span id="shieldTime">10</span>s
+        <div class="pu-timebar"><div class="pu-timebar-fill" id="shieldBar"></div></div>
+      </div>
 
-    <!-- Magnet + slow-motion badges -->
-    <div class="pu-badge magnet" id="magnetBadge" aria-live="polite">
-      <span aria-hidden="true">🧲</span>
-      <span id="magnetTime">8</span>s
-      <div class="pu-timebar"><div class="pu-timebar-fill" id="magnetBar"></div></div>
-    </div>
-    <div class="pu-badge slow" id="slowBadge" aria-live="polite">
-      <span aria-hidden="true">⏱</span>
-      <span id="slowTime">10</span>s
-      <div class="pu-timebar"><div class="pu-timebar-fill" id="slowBar"></div></div>
-    </div>
+      <!-- Double-shot -->
+      <div class="ds-badge" id="dsBadge" aria-live="polite">
+        <span aria-hidden="true">⇅⇅</span>
+        <span id="dsTime">10</span>s
+        <div class="pu-timebar"><div class="pu-timebar-fill" id="dsBar"></div></div>
+      </div>
 
-    <!-- Combo + coin streak HUDs -->
-    <div class="combo-hud" id="comboHud" aria-live="polite">
-      <span aria-hidden="true">🛸</span>
-      <span>X2</span>
-      <span id="comboCount">0/10</span>
-    </div>
-    <div class="streak-hud" id="streakHud" aria-live="polite">
-      <span class="streak-coin" aria-hidden="true">
-        <svg viewBox="0 0 24 24">
-          <defs>
-            <radialGradient id="streakCoinG" cx="35%" cy="30%" r="75%">
-              <stop offset="0%" stop-color="#fff4b8"/>
-              <stop offset="55%" stop-color="#ffc43d"/>
-              <stop offset="100%" stop-color="#b07106"/>
-            </radialGradient>
-          </defs>
-          <circle cx="12" cy="12" r="10" fill="url(#streakCoinG)" stroke="#7a4a00" stroke-width="1"/>
-          <circle cx="12" cy="12" r="7" fill="none" stroke="#a76a00" stroke-width="0.8" opacity="0.7"/>
-          <text x="12" y="15.8" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="9.5" font-weight="800" fill="#7a4a00">¤</text>
-        </svg>
-      </span>
-      <span>კომბო</span>
-      <span id="streakCount">0/5</span>
+      <!-- Magnet -->
+      <div class="pu-badge magnet" id="magnetBadge" aria-live="polite">
+        <span aria-hidden="true">🧲</span>
+        <span id="magnetTime">8</span>s
+        <div class="pu-timebar"><div class="pu-timebar-fill" id="magnetBar"></div></div>
+      </div>
+
+      <!-- Slow-motion -->
+      <div class="pu-badge slow" id="slowBadge" aria-live="polite">
+        <span aria-hidden="true">⏱</span>
+        <span id="slowTime">10</span>s
+        <div class="pu-timebar"><div class="pu-timebar-fill" id="slowBar"></div></div>
+      </div>
+
+      <!-- Combo + coin-streak counters -->
+      <div class="combo-hud" id="comboHud" aria-live="polite">
+        <span aria-hidden="true">🛸</span>
+        <span>X2</span>
+        <span id="comboCount">0/10</span>
+      </div>
+      <div class="streak-hud" id="streakHud" aria-live="polite">
+        <span class="streak-coin" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <defs>
+              <radialGradient id="streakCoinG" cx="35%" cy="30%" r="75%">
+                <stop offset="0%" stop-color="#fff4b8"/>
+                <stop offset="55%" stop-color="#ffc43d"/>
+                <stop offset="100%" stop-color="#b07106"/>
+              </radialGradient>
+            </defs>
+            <circle cx="12" cy="12" r="10" fill="url(#streakCoinG)" stroke="#7a4a00" stroke-width="1"/>
+            <circle cx="12" cy="12" r="7" fill="none" stroke="#a76a00" stroke-width="0.8" opacity="0.7"/>
+            <text x="12" y="15.8" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="9.5" font-weight="800" fill="#7a4a00">¤</text>
+          </svg>
+        </span>
+        <span>კომბო</span>
+        <span id="streakCount">0/5</span>
+      </div>
     </div>
 
     <!-- Bonus banner (combo/streak rewards) -->
@@ -2967,35 +2993,38 @@
     });
     hazardHost.appendChild(warn);
     cometWarnings.push({ el: warn, until: performance.now() + 1100 });
-    // Fire the comet 1.1s later
+    // Fire the laser 1.1s later — beam shape matches the telegraphed path.
     setTimeout(() => {
       if (GAME.over) { warn.remove(); return; }
+      const beamW = 140, beamH = 10;
       const el = document.createElement('div');
       Object.assign(el.style, {
         position: 'absolute',
-        left: startX + 'px', top: (startY - 12) + 'px',
-        width: '40px', height: '24px',
+        left: startX + 'px', top: (startY - beamH / 2) + 'px',
+        width: beamW + 'px', height: beamH + 'px',
         zIndex: 3, pointerEvents: 'none',
         transform: `rotate(${ang}rad)`,
-        filter: 'drop-shadow(0 0 12px #ffa040) drop-shadow(0 0 24px #ff5a3a)',
+        filter: 'drop-shadow(0 0 10px #ff6070) drop-shadow(0 0 22px #ff3550)',
       });
       const uid = Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
       el.innerHTML = `
-        <svg viewBox="0 0 40 24" aria-hidden="true">
+        <svg viewBox="0 0 140 10" preserveAspectRatio="none" aria-hidden="true">
           <defs>
             <linearGradient id="cmtG_${uid}" x1="0" y1="0.5" x2="1" y2="0.5">
-              <stop offset="0%"  stop-color="rgba(255,240,180,0)"/>
-              <stop offset="70%" stop-color="#ffb347"/>
-              <stop offset="100%" stop-color="#fff4c8"/>
+              <stop offset="0%"   stop-color="rgba(255,90,110,0)"/>
+              <stop offset="18%"  stop-color="#ff5a6e"/>
+              <stop offset="50%"  stop-color="#ffffff"/>
+              <stop offset="82%"  stop-color="#ff5a6e"/>
+              <stop offset="100%" stop-color="rgba(255,90,110,0)"/>
             </linearGradient>
           </defs>
-          <path d="M0 12 L28 6 L38 12 L28 18 Z" fill="url(#cmtG_${uid})"/>
-          <circle cx="34" cy="12" r="6" fill="#fff4c8"/>
+          <rect x="0" y="3" width="140" height="4" rx="2" fill="url(#cmtG_${uid})"/>
+          <rect x="0" y="4.25" width="140" height="1.5" rx="0.75" fill="#ffffff" opacity="0.85"/>
         </svg>`;
       hazardHost.appendChild(el);
       const vx = (endX - startX) / 60;
       const vy = (endY - startY) / 60;
-      comets.push({ el, x: startX, y: startY - 12, w: 40, h: 24, vx, vy });
+      comets.push({ el, x: startX, y: startY - beamH / 2, w: beamW, h: beamH, vx, vy });
     }, 1100);
   }
 
@@ -3791,10 +3820,10 @@
 // ---------------- Power-ups (shield, double-shot, bomb, magnet, heal, slow) ----------------
 (function () {
   const host = document.getElementById('powerups');
-  const halo = document.getElementById('shieldHalo');
-  const timerEl = document.getElementById('shieldTimer');
-  const ringEl  = document.getElementById('shieldRing');
-  const numEl   = document.getElementById('shieldNum');
+  const halo        = document.getElementById('shieldHalo');
+  const shieldBadge = document.getElementById('shieldBadge');
+  const shieldTime  = document.getElementById('shieldTime');
+  const shieldBar   = document.getElementById('shieldBar');
   const dsBadge = document.getElementById('dsBadge');
   const dsTime  = document.getElementById('dsTime');
   const dsBar   = document.getElementById('dsBar');
@@ -4007,23 +4036,27 @@
 
   function activateShield() {
     PU.shieldUntil = performance.now() + DUR_SHIELD * 1000;
-    halo.style.display = '';
-    timerEl.style.display = '';
+    if (halo) halo.style.display = '';
+    if (shieldBadge) shieldBadge.classList.add('on');
+    if (shieldBar)   shieldBar.style.width = '100%';
     try { window.SFX && SFX.shieldPick(); } catch(_) {}
   }
   function activateDouble() {
     PU.doubleUntil = performance.now() + DUR_DOUBLE * 1000;
     dsBadge.classList.add('on');
+    if (dsBar) dsBar.style.width = '100%';
     try { window.SFX && SFX.doubleShotPick(); } catch(_) {}
   }
   function activateMagnet() {
     PU.magnetUntil = performance.now() + DUR_MAGNET * 1000;
     if (magnetBadge) magnetBadge.classList.add('on');
+    if (magnetBar) magnetBar.style.width = '100%';
     try { window.SFX && SFX.doubleShotPick(); } catch(_) {}
   }
   function activateSlow() {
     PU.slowUntil = performance.now() + DUR_SLOW * 1000;
     if (slowBadge) slowBadge.classList.add('on');
+    if (slowBar) slowBar.style.width = '100%';
     try { window.SFX && SFX.shieldPick(); } catch(_) {}
   }
   function activateBomb() {
@@ -4108,21 +4141,20 @@
       }
     }
 
-    // Shield timer visuals — follow the rocket every frame
+    // Shield halo follows the rocket; countdown badge lives in the HUD stack.
     if (PU.shieldActive()) {
       const remain = (PU.shieldUntil - now) / 1000;
-      const pct = remain / DUR_SHIELD;
-      const CIRC = 163.36;
-      if (ringEl) ringEl.setAttribute('stroke-dashoffset', String(CIRC * (1 - pct)));
-      if (numEl)  numEl.textContent = Math.max(0, Math.ceil(remain));
       const c = rocketCenter();
-      halo.style.left = c.x + 'px';
-      halo.style.top  = c.y + 'px';
-      timerEl.style.left = c.x + 'px';
-      timerEl.style.top  = c.y + 'px';
-    } else if (halo.style.display !== 'none') {
-      halo.style.display = 'none';
-      timerEl.style.display = 'none';
+      if (halo) {
+        halo.style.left = c.x + 'px';
+        halo.style.top  = c.y + 'px';
+      }
+      if (shieldBadge && !shieldBadge.classList.contains('on')) shieldBadge.classList.add('on');
+      if (shieldTime) shieldTime.textContent = Math.max(0, Math.ceil(remain));
+      if (shieldBar)  shieldBar.style.width = Math.max(0, Math.min(100, (remain / DUR_SHIELD) * 100)) + '%';
+    } else {
+      if (halo && halo.style.display !== 'none') halo.style.display = 'none';
+      if (shieldBadge && shieldBadge.classList.contains('on')) shieldBadge.classList.remove('on');
     }
 
     // Double-shot badge timer
@@ -4156,8 +4188,8 @@
     if (window.GAME && window.GAME.over) {
       powerups.forEach(p => p.el.remove()); powerups.length = 0;
       PU.shieldUntil = 0; PU.doubleUntil = 0; PU.magnetUntil = 0; PU.slowUntil = 0;
-      halo.style.display = 'none';
-      timerEl.style.display = 'none';
+      if (halo) halo.style.display = 'none';
+      if (shieldBadge) shieldBadge.classList.remove('on');
       dsBadge.classList.remove('on');
       if (magnetBadge) magnetBadge.classList.remove('on');
       if (slowBadge)   slowBadge.classList.remove('on');
