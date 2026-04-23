@@ -809,7 +809,7 @@
     position: absolute;
     right: 22px; top: 64px;
     z-index: 6;
-    padding: 6px 10px;
+    padding: 6px 10px 10px;
     border-radius: 10px;
     background: rgba(40, 10, 30, 0.55);
     border: 1px solid rgba(255, 160, 90, 0.4);
@@ -824,11 +824,30 @@
   }
   .ds-badge.on { display: inline-flex; }
 
+  /* Shared countdown bar inside timed powerup badges */
+  .pu-timebar {
+    position: absolute;
+    left: 8px; right: 8px; bottom: 3px;
+    height: 3px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .pu-timebar-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 100%;
+    background: currentColor;
+    border-radius: 2px;
+    box-shadow: 0 0 4px currentColor;
+    transition: width 0.1s linear;
+  }
+
   /* Generic powerup badges (magnet, slow) stacked below the level HUD */
   .pu-badge {
     position: absolute;
     z-index: 6;
-    padding: 6px 10px;
+    padding: 6px 10px 10px;
     border-radius: 10px;
     background: rgba(10, 8, 30, 0.55);
     border: 1px solid rgba(180, 180, 255, 0.22);
@@ -1439,16 +1458,19 @@
     <div class="ds-badge" id="dsBadge" aria-live="polite">
       <span aria-hidden="true">⇅⇅</span>
       <span id="dsTime">10</span>s
+      <div class="pu-timebar"><div class="pu-timebar-fill" id="dsBar"></div></div>
     </div>
 
     <!-- Magnet + slow-motion badges -->
     <div class="pu-badge magnet" id="magnetBadge" aria-live="polite">
       <span aria-hidden="true">🧲</span>
       <span id="magnetTime">8</span>s
+      <div class="pu-timebar"><div class="pu-timebar-fill" id="magnetBar"></div></div>
     </div>
     <div class="pu-badge slow" id="slowBadge" aria-live="polite">
       <span aria-hidden="true">⏱</span>
       <span id="slowTime">10</span>s
+      <div class="pu-timebar"><div class="pu-timebar-fill" id="slowBar"></div></div>
     </div>
 
     <!-- Combo + coin streak HUDs -->
@@ -2830,7 +2852,7 @@
   }
 
   // ---- Enemy bolts (red, from gun UFOs) ----
-  const ENEMY_BOLT_SPEED_BASE = 7;
+  const ENEMY_BOLT_SPEED_BASE = 5;
   function spawnEnemyBolt(sx, sy) {
     if (!enemyBoltsHost) return;
     // Aim roughly at the rocket's current position, with small spread
@@ -2870,7 +2892,7 @@
     if (GAME.over || GAME.level < 2) return;
     const el = document.createElement('div');
     el.className = 'hazard-rock';
-    const size = 28 + Math.random() * 26;
+    const size = 52 + Math.random() * 40;
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     const x = 30 + Math.random() * (window.innerWidth - 60);
@@ -3775,10 +3797,13 @@
   const numEl   = document.getElementById('shieldNum');
   const dsBadge = document.getElementById('dsBadge');
   const dsTime  = document.getElementById('dsTime');
+  const dsBar   = document.getElementById('dsBar');
   const magnetBadge = document.getElementById('magnetBadge');
   const magnetTime  = document.getElementById('magnetTime');
+  const magnetBar   = document.getElementById('magnetBar');
   const slowBadge   = document.getElementById('slowBadge');
   const slowTime    = document.getElementById('slowTime');
+  const slowBar     = document.getElementById('slowBar');
   if (!host) return;
 
   // Durations (seconds) per kind
@@ -4104,6 +4129,7 @@
     if (PU.doubleActive()) {
       const remain = (PU.doubleUntil - now) / 1000;
       if (dsTime) dsTime.textContent = Math.max(0, Math.ceil(remain));
+      if (dsBar)  dsBar.style.width = Math.max(0, Math.min(100, (remain / DUR_DOUBLE) * 100)) + '%';
     } else if (dsBadge.classList.contains('on')) {
       dsBadge.classList.remove('on');
     }
@@ -4112,6 +4138,7 @@
     if (PU.magnetActive()) {
       const remain = (PU.magnetUntil - now) / 1000;
       if (magnetTime) magnetTime.textContent = Math.max(0, Math.ceil(remain));
+      if (magnetBar)  magnetBar.style.width = Math.max(0, Math.min(100, (remain / DUR_MAGNET) * 100)) + '%';
     } else if (magnetBadge && magnetBadge.classList.contains('on')) {
       magnetBadge.classList.remove('on');
     }
@@ -4120,6 +4147,7 @@
     if (PU.slowActive()) {
       const remain = (PU.slowUntil - now) / 1000;
       if (slowTime) slowTime.textContent = Math.max(0, Math.ceil(remain));
+      if (slowBar)  slowBar.style.width = Math.max(0, Math.min(100, (remain / DUR_SLOW) * 100)) + '%';
     } else if (slowBadge && slowBadge.classList.contains('on')) {
       slowBadge.classList.remove('on');
     }
