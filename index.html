@@ -804,11 +804,13 @@
     text-shadow: 0 0 8px rgba(80,180,255,0.9);
   }
 
-  /* Top-left HUD: powerup countdowns directly below the Round indicator.
-     Children are display:none by default and flex in when `.on`. */
+  /* Left-edge HUD columns. The round indicator stays at top:18. Below it,
+     a wide gap, then the powerup countdown sits centered in the empty
+     space, and the score-multiplier boxes sit near the bottom of the gap.
+     clamp() keeps the numbers sane on short and tall viewports. */
   .hud-stack-left {
     position: absolute;
-    top: 62px;
+    top: clamp(140px, 28vh, 260px);  /* middle of the round→multiplier gap */
     left: 22px;
     z-index: 6;
     display: flex;
@@ -817,12 +819,9 @@
     gap: 6px;
     pointer-events: none;
   }
-
-  /* Combo + streak multipliers live further down the left edge so the
-     powerup countdown above has breathing room. */
   .hud-stack-mult {
     position: absolute;
-    top: 320px;
+    top: clamp(300px, 60vh, 560px);  /* clearly lower on the screen */
     left: 22px;
     z-index: 6;
     display: flex;
@@ -830,9 +829,6 @@
     align-items: flex-start;
     gap: 6px;
     pointer-events: none;
-  }
-  @media (max-height: 640px) {
-    .hud-stack-mult { top: 240px; }
   }
 
   /* Active double-shot badge (now part of the left-hand stack) */
