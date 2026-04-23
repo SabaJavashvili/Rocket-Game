@@ -3578,8 +3578,9 @@
     rocks.forEach(r => r.el.remove()); rocks.length = 0;
     comets.forEach(c => c.el.remove()); comets.length = 0;
     cometWarnings.forEach(w => w.el.remove()); cometWarnings.length = 0;
-    // Boss cleanup — element, health bar, and per-life flags. inEndless is
-    // persistent across runs so it stays driven by localStorage.
+    // Boss cleanup — each new run starts fresh so the round 10
+    // boss fight always triggers. localStorage flag remains set
+    // for any future UI use, but does not auto-engage endless.
     if (boss) { boss.el.remove(); boss = null; }
     const bossBar = document.getElementById('bossBar');
     if (bossBar) bossBar.remove();
@@ -3587,6 +3588,7 @@
     if (victoryScr) victoryScr.classList.remove('show');
     bossSpawned  = false;
     bossDefeated = false;
+    inEndless    = false;
     nextRock   = performance.now() + 4000;
     nextComet  = performance.now() + 18000;
     setLevel(1);
