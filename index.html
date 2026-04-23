@@ -524,6 +524,12 @@
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
+    /* Buttons sit on a body with touch-action:none, which suppresses
+       the synthetic click on some mobile browsers. Re-enable tap-only
+       gestures so clicks fire reliably. */
+    touch-action: manipulation;
+    position: relative;
+    z-index: 1;
   }
   .victory-btn.continue {
     background: linear-gradient(135deg, rgba(80,220,140,0.85), rgba(40,140,90,0.9));
@@ -3221,33 +3227,28 @@
     reset();
   }
 
-  // Wire the victory buttons once on load. Uses both pointerup
-  // and click for robust tap handling across mobile and desktop.
-  // A guard flag prevents double-firing when both events hit.
+  // Wire the victory buttons via document-level delegation so we
+  // catch the event regardless of target nuances (svg children,
+  // text nodes, etc). Listens to both click (desktop + standard
+  // mobile) and touchend (fallback when synthetic click is
+  // suppressed by other handlers). A short-window guard prevents
+  // double-firing when both events arrive for the same tap.
   (function wireVictoryButtons() {
-    const contBtn = document.getElementById('victoryContinueBtn');
-    const restBtn = document.getElementById('victoryRestartBtn');
-    let handled = false;
-    function wrap(handler) {
-      return function (ev) {
-        if (handled) return;
-        handled = true;
-        requestAnimationFrame(() => { handled = false; });
-        ev.preventDefault();
-        ev.stopPropagation();
-        handler();
-      };
+    let lastHandledAt = 0;
+    function dispatch(ev) {
+      const btn = ev.target && ev.target.closest && ev.target.closest('.victory-btn');
+      if (!btn) return;
+      const now = performance.now();
+      if (now - lastHandledAt < 500) { ev.preventDefault(); return; }
+      lastHandledAt = now;
+      ev.preventDefault();
+      ev.stopPropagation();
+      try { console.log('[Victory] Button tap:', btn.id, 'via', ev.type); } catch(_) {}
+      if (btn.id === 'victoryContinueBtn') continueToEndless();
+      else if (btn.id === 'victoryRestartBtn') restartFromVictory();
     }
-    if (contBtn) {
-      const h = wrap(continueToEndless);
-      contBtn.addEventListener('pointerup', h);
-      contBtn.addEventListener('click', h);
-    }
-    if (restBtn) {
-      const h = wrap(restartFromVictory);
-      restBtn.addEventListener('pointerup', h);
-      restBtn.addEventListener('click', h);
-    }
+    document.addEventListener('click', dispatch);
+    document.addEventListener('touchend', dispatch, { passive: false });
   })();
 
   // Galaxy-style fireworks — colorful bursts across the screen
