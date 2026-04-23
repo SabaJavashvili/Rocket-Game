@@ -1254,6 +1254,14 @@
     color: #a9ecff;
     text-shadow: 0 0 10px rgba(79,209,255,0.45);
   }
+  .level-hud #level.infinity {
+    font-size: 26px;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+  @media (pointer: coarse) and (max-width: 520px) {
+    .level-hud #level.infinity { font-size: 20px; }
+  }
 
   /* Responsive left-HUD overrides — purely :root variable tweaks so every
      piece of the stack (round, powerups, multipliers) rescales together. */
@@ -2024,6 +2032,7 @@
   let bossSpawned = false;
   let bossDefeated = false;
   let inEndless = false;
+  let endlessStartTs = 0;
   function renderLife() {
     if (!lifeFillEl) return;
     const pct = Math.max(0, GAME.hp) / GAME.maxHp * 100;
@@ -2121,32 +2130,45 @@
   // adds +8% per level above 10 so pacing keeps ramping.
   function levelMult() {
     const base = LEVEL_SPEED[Math.min(9, GAME.level - 1)] || 1;
-    const endlessBonus = GAME.level > 10 ? 1 + (GAME.level - 10) * 0.08 : 1;
+    // In endless mode, difficulty scales with time spent in endless.
+    let endlessBonus = 1;
+    if (inEndless && endlessStartTs > 0) {
+      const endlessSeconds = (performance.now() - endlessStartTs) / 1000;
+      // +8% difficulty every 20 seconds in endless, capped at +80%
+      endlessBonus = 1 + Math.min(0.8, Math.floor(endlessSeconds / 20) * 0.08);
+    }
     return base * endlessBonus;
   }
 
   // Roman-style round labels in Georgian
   const ROUND_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
   function roundLabel(n) {
-    if (n > 10) return 'ENDLESS • ' + n;
-    return ROUND_ROMAN[n - 1] + ' რაუნდი';
+    return ROUND_ROMAN[Math.max(0, Math.min(9, n - 1))] + ' რაუნდი';
   }
 
   function setLevel(n) {
-    const cap = inEndless ? 99 : MAX_LEVEL;
-    GAME.level = Math.max(1, Math.min(cap, n));
+    // Level is always capped at MAX_LEVEL (10). In endless mode,
+    // difficulty continues to scale via endlessBonus but the display
+    // shows an infinity symbol instead of a round number.
+    GAME.level = Math.max(1, Math.min(MAX_LEVEL, n));
     if (levelEl) {
-      levelEl.textContent = (inEndless && GAME.level > 10)
-        ? ('ENDLESS • ' + GAME.level)
-        : roundLabel(Math.min(MAX_LEVEL, GAME.level));
+      levelEl.textContent = inEndless
+        ? '∞'
+        : roundLabel(GAME.level);
+      levelEl.classList.toggle('infinity', !!inEndless);
     }
   }
   function maybeLevelUp() {
-    const cap = inEndless ? 99 : MAX_LEVEL;
+    // In endless mode, never advance level beyond 10 (difficulty is
+    // scaled elsewhere via endlessBonus). This keeps round banners
+    // and visual progression from counting past ∞.
+    const cap = inEndless ? MAX_LEVEL : MAX_LEVEL;
     const target = Math.min(cap, 1 + Math.floor(GAME.score / LEVEL_PER_POINTS));
     if (target !== GAME.level) {
       setLevel(target);
-      showRoundBanner(target);
+      // Suppress round banners in endless mode — level 10 is the
+      // last banner ever shown.
+      if (!inEndless) showRoundBanner(target);
       SFX.levelUp();
     }
   }
@@ -3181,6 +3203,9 @@
   function continueToEndless() {
     hideVictoryScreen();
     inEndless = true;
+    endlessStartTs = performance.now();
+    // Refresh the level display to show ∞.
+    setLevel(GAME.level);
     // Keep score and level, unpause, resume spawning.
     GAME.over = false;
     nextSpawn = performance.now() + 1200;
@@ -3586,9 +3611,10 @@
     if (bossBar) bossBar.remove();
     const victoryScr = document.getElementById('victoryScreen');
     if (victoryScr) victoryScr.classList.remove('show');
-    bossSpawned  = false;
-    bossDefeated = false;
-    inEndless    = false;
+    bossSpawned    = false;
+    bossDefeated   = false;
+    inEndless      = false;
+    endlessStartTs = 0;
     nextRock   = performance.now() + 4000;
     nextComet  = performance.now() + 18000;
     setLevel(1);
@@ -3673,8 +3699,11 @@
     const wStep = step * slowK;
 
     // Boss trigger: round 10 with 220+ score, once per life, only outside endless.
-    if (!inEndless && GAME.level >= 10 && GAME.score >= 220 && !bossSpawned && !bossDefeated) {
+    // Defensive: also skip if a boss is already on screen.
+    if (!inEndless && !boss && !bossSpawned && !bossDefeated &&
+        GAME.level >= 10 && GAME.score >= 220) {
       bossSpawned = true;
+      try { console.log('[Boss] Spawning at score', GAME.score, 'level', GAME.level); } catch(_) {}
       spawnBoss();
     }
     updateBoss(now, step, slowK);
