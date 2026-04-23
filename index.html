@@ -631,6 +631,9 @@
     user-select: none;
     background: transparent;
   }
+  /* While the victory screen is visible, the stick must NOT
+     capture touches — they need to reach the buttons. */
+  body.victory-showing .stick { pointer-events: none; }
   .stick-ring, .stick-knob { display: none; }
   .stick-ring {
     position: absolute; inset: 0;
@@ -704,15 +707,12 @@
   /* Show touch UI on devices that need it */
   @media (pointer: coarse), (max-width: 820px) {
     .touch { display: block; }
-    .hint {
-      bottom: calc(110px + env(safe-area-inset-bottom, 0px));
-      padding: 8px 12px;
-      font-size: 12px;
-    }
-    .hint kbd { min-width: 18px; padding: 2px 5px; font-size: 10px; }
+  }
+  /* Keyboard-only hint — hidden entirely on any touch device */
+  @media (pointer: coarse) {
+    .hint { display: none !important; }
   }
   @media (pointer: coarse) and (max-width: 520px) {
-    .hint { display: none; }
     .score { top: calc(12px + env(safe-area-inset-top, 0px)); right: 14px; padding: 6px 10px; }
     .score-label { font-size: 10px; }
     .score #score { font-size: 16px; }
@@ -3182,6 +3182,7 @@
     const scoreLine = document.getElementById('victoryScore');
     if (scoreLine) scoreLine.textContent = 'ქულა: ' + GAME.score;
     if (scr) scr.classList.add('show');
+    document.body.classList.add('victory-showing');
     try { SFX.victoryFanfare && SFX.victoryFanfare(); } catch(_) {}
     launchFireworks(6000);
     // Pause gameplay while the player celebrates; dismissed by button click.
@@ -3198,6 +3199,7 @@
   function hideVictoryScreen() {
     const scr = document.getElementById('victoryScreen');
     if (scr) scr.classList.remove('show');
+    document.body.classList.remove('victory-showing');
   }
 
   function continueToEndless() {
@@ -3219,12 +3221,33 @@
     reset();
   }
 
-  // Wire the victory buttons once on load.
+  // Wire the victory buttons once on load. Uses both pointerup
+  // and click for robust tap handling across mobile and desktop.
+  // A guard flag prevents double-firing when both events hit.
   (function wireVictoryButtons() {
     const contBtn = document.getElementById('victoryContinueBtn');
     const restBtn = document.getElementById('victoryRestartBtn');
-    if (contBtn) contBtn.addEventListener('click', continueToEndless);
-    if (restBtn) restBtn.addEventListener('click', restartFromVictory);
+    let handled = false;
+    function wrap(handler) {
+      return function (ev) {
+        if (handled) return;
+        handled = true;
+        requestAnimationFrame(() => { handled = false; });
+        ev.preventDefault();
+        ev.stopPropagation();
+        handler();
+      };
+    }
+    if (contBtn) {
+      const h = wrap(continueToEndless);
+      contBtn.addEventListener('pointerup', h);
+      contBtn.addEventListener('click', h);
+    }
+    if (restBtn) {
+      const h = wrap(restartFromVictory);
+      restBtn.addEventListener('pointerup', h);
+      restBtn.addEventListener('click', h);
+    }
   })();
 
   // Galaxy-style fireworks — colorful bursts across the screen
@@ -4230,7 +4253,9 @@
 
   document.addEventListener('gesturestart',  (e) => e.preventDefault());
   document.addEventListener('touchstart',    (e) => {
-    if (!e.target.closest('.stick, .fire-btn')) e.preventDefault();
+    // Allow steering stick, fire button, and any victory-screen controls
+    if (e.target.closest('.stick, .fire-btn, .victory-btn, #victoryScreen')) return;
+    e.preventDefault();
   }, { passive: false });
 })();
 </script>
