@@ -1522,40 +1522,27 @@
       <button class="fire-btn" id="fireBtn" aria-label="სროლა">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <defs>
-            <linearGradient id="missileBody" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"  stop-color="#f4f7ff"/>
-              <stop offset="55%" stop-color="#c7ccda"/>
-              <stop offset="100%" stop-color="#6b7187"/>
+            <linearGradient id="boltG" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="#ffffff"/>
+              <stop offset="35%"  stop-color="#a9ecff"/>
+              <stop offset="70%"  stop-color="#4fd1ff"/>
+              <stop offset="100%" stop-color="#7a4bff"/>
             </linearGradient>
-            <linearGradient id="missileNose" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"  stop-color="#ff9a85"/>
-              <stop offset="60%" stop-color="#d63d4a"/>
-              <stop offset="100%" stop-color="#7a0e1a"/>
-            </linearGradient>
-            <linearGradient id="missileFlame" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"  stop-color="#fff4b8"/>
-              <stop offset="55%" stop-color="#ffb347"/>
-              <stop offset="100%" stop-color="#ff5a6e" stop-opacity="0"/>
-            </linearGradient>
+            <radialGradient id="boltHead" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ffffff"/>
+              <stop offset="60%" stop-color="#a9ecff"/>
+              <stop offset="100%" stop-color="rgba(79,209,255,0)"/>
+            </radialGradient>
           </defs>
-          <!-- Missile body -->
-          <rect x="10" y="6" width="4" height="11" fill="url(#missileBody)"
-                stroke="#3f4457" stroke-width="0.4"/>
-          <!-- Nose cone -->
-          <path d="M10 6 C 10 3, 11 1.5, 12 1.5 C 13 1.5, 14 3, 14 6 Z"
-                fill="url(#missileNose)" stroke="#4a0912" stroke-width="0.4"/>
-          <!-- Side fins -->
-          <path d="M10 13 L 7 17 L 10 16 Z" fill="#3f4457"/>
-          <path d="M14 13 L 17 17 L 14 16 Z" fill="#3f4457"/>
-          <!-- Tail fin -->
-          <path d="M10 16 L 11 18 L 13 18 L 14 16 Z" fill="#2a2f45"/>
-          <!-- Accent stripe -->
-          <rect x="10" y="9.5" width="4" height="0.8" fill="#d63d4a"/>
-          <!-- Body highlight -->
-          <rect x="10.3" y="6.4" width="0.7" height="10" fill="#ffffff" opacity="0.55"/>
-          <!-- Exhaust flame -->
-          <path d="M10.5 18 Q 11 21 12 22.5 Q 13 21 13.5 18 Z"
-                fill="url(#missileFlame)"/>
+          <!-- Halo glow -->
+          <circle cx="12" cy="5" r="4.5" fill="url(#boltHead)" opacity="0.9"/>
+          <!-- Laser shaft -->
+          <rect x="10.5" y="3" width="3" height="18" rx="1.5"
+                fill="url(#boltG)"
+                stroke="#ffffff" stroke-width="0.3" stroke-opacity="0.5"/>
+          <!-- Bright core -->
+          <rect x="11.4" y="4" width="1.2" height="16" rx="0.6"
+                fill="#ffffff" opacity="0.9"/>
         </svg>
       </button>
     </div>
@@ -1708,9 +1695,9 @@
   // Tuning — touch devices fly faster toward tap targets, but with gentler
   // acceleration so the trip still feels deliberate.
   const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
-  const ACCEL    = IS_TOUCH ? 0.65 : 0.9;   // px / frame^2
-  const MAX_V    = IS_TOUCH ? 18   : 14;    // max velocity (px / frame)
-  const DAMP     = 0.90;  // per-frame velocity retention when no input
+  const ACCEL    = IS_TOUCH ? 1.1  : 0.9;   // px / frame^2
+  const MAX_V    = IS_TOUCH ? 22   : 14;    // max velocity (px / frame)
+  const DAMP     = IS_TOUCH ? 0.82 : 0.90;  // tighter damping on touch so finger-lift stops fast
   const MAX_BANK = 18;    // deg
   const BANK_LERP= 0.12;  // how quickly bank catches up to target
 
@@ -3184,10 +3171,12 @@
 
   // Convert a viewport (client) coord into rocket-offset space.
   // The rocket's rest position is the viewport center, and ROCKET.x/ROCKET.y
-  // are offsets from there.
+  // are offsets from there. We aim the rocket ~FINGER_OFFSET_Y px above the
+  // touch point so the finger doesn't block the player's view of the rocket.
+  const FINGER_OFFSET_Y = 90; // px — rocket appears above finger
   function setTargetFromClient(clientX, clientY) {
     const tx = clientX - window.innerWidth  / 2;
-    const ty = clientY - window.innerHeight / 2;
+    const ty = (clientY - FINGER_OFFSET_Y) - window.innerHeight / 2;
     R.target = { x: tx, y: ty };
   }
 
@@ -3307,7 +3296,9 @@
   };
 
   const powerups = [];
-  let nextSpawn = performance.now() + 8000 + Math.random() * 6000;
+  let nextSpawn = performance.now() + 4000 + Math.random() * 3000;
+  let lastKind = null;
+  let lastTrackedLevel = 1;
 
   function shouldSpawn() {
     if (!window.GAME || window.GAME.over) return false;
@@ -3326,12 +3317,19 @@
     if (lvl >= 6 && window.GAME && window.GAME.hp < window.GAME.maxHp)
       pool.push(['heal', 8]);
     const total = pool.reduce((s, p) => s + p[1], 0);
-    let r = Math.random() * total;
-    for (const [kind, w] of pool) {
-      r -= w;
-      if (r <= 0) return kind;
+    function rollOnce() {
+      let r = Math.random() * total;
+      for (const [kind, w] of pool) {
+        r -= w;
+        if (r <= 0) return kind;
+      }
+      return pool[0][0];
     }
-    return pool[0][0];
+    let chosen = rollOnce();
+    // Avoid back-to-back duplicates when there's enough variety to reroll.
+    if (chosen === lastKind && pool.length > 2) chosen = rollOnce();
+    lastKind = chosen;
+    return chosen;
   }
 
   function svgFor(kind) {
@@ -3546,10 +3544,15 @@
     if (lastTs) step = Math.min(3, Math.max(0.2, (now - lastTs) / (1000/60)));
     lastTs = now;
 
+    // Round-start bonus: on any level change, pull the next spawn in to ≤2s.
+    if (window.GAME && window.GAME.level !== lastTrackedLevel) {
+      lastTrackedLevel = window.GAME.level;
+      if (shouldSpawn()) nextSpawn = Math.min(nextSpawn, performance.now() + 2000);
+    }
+
     if (shouldSpawn() && now >= nextSpawn) {
       spawnPowerup();
-      // Rare — every 15-25 seconds
-      nextSpawn = now + 15000 + Math.random() * 10000;
+      nextSpawn = now + 8000 + Math.random() * 6000; // 8-14 seconds
     }
 
     // Slow-motion also affects falling powerup items
